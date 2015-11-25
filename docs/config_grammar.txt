@@ -1,0 +1,38 @@
+Configuration file grammar
+==========================
+
+CONFIG          := CONFIG_RULE+
+
+CONFIG_RULE     := IN_RULE [ '|' FILTER_RULE ]+ '|' OUT_RULE
+
+VLAN_ID         := integer  # < 4096
+ETH_PORT        := integer  # < RTE_MAX_ETHPORTS
+NAT_CONFIG_FILE := str      # relative or absolute path to a NAT configuration file
+
+IN_RULE         := "in" ETH_PORT
+OUT_RULE        := out [ETH_PORT | "discard"]
+FILTER_RULE     := [VLAN_RULE | NAT_RULE]
+
+VLAN_RULE       := "vlan" ["encap" | "decap"] VLAN_ID
+NAT_RULE        := "nat" NAT_CONFIG_FILE
+
+
+Examples
+========
+
+# using one ports
+
+in 0 | vlan decap 5 | nat /etc/nat_rules.conf | vlan encap 6 | out 0
+
+# using two ports
+
+in 0 | nat /etc/nat_rules.conf | out 1
+in 1 | nat /etc/nat_rules.conf | out 1
+
+
+Evolution?
+==========
+
+It would be awesome to handle configurations, such as:
+
+in 0 | vlan decap 5 | if ip.src matches 212.83.0.0/16 then discard else nat /etc/nat_rules.conf | out 0

@@ -14,9 +14,13 @@
 /*
  * Each core has a RX and a TX queue on each ethernet device.
  */
+struct queue {
+    uint16_t id;
+};
+
 struct core {
-    uint16_t rx_queues[RTE_MAX_ETHPORTS];
-    uint16_t tx_queues[RTE_MAX_ETHPORTS];
+    struct queue rx_queues[RTE_MAX_ETHPORTS];
+    struct queue tx_queues[RTE_MAX_ETHPORTS];
 };
 
 /*
@@ -197,8 +201,8 @@ port_init(uint8_t port, struct core *cores)
                 "Port %i: RX/TX queues %i setup on core %i (socket: %i)\n",
                 port, queue_id, core, socket);
 
-        cores[core].rx_queues[port] = queue_id;
-        cores[core].tx_queues[port] = queue_id;
+        cores[core].rx_queues[port].id = queue_id;
+        cores[core].tx_queues[port].id = queue_id;
 
         ++queue_id;
     }

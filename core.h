@@ -21,4 +21,13 @@
 /* Macros for printing using RTE_LOG */
 #define RTE_LOGTYPE_APP RTE_LOGTYPE_USER1
 
+struct queue {
+    uint16_t id;
+};
+
+struct core {
+    struct queue rx_queues[RTE_MAX_ETHPORTS];
+    struct queue tx_queues[RTE_MAX_ETHPORTS];
+};
+
 #endif

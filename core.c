@@ -9,19 +9,8 @@
 #include <rte_mempool.h>
 
 #include "core.h"
+#include "pkt.h"
 
-
-/*
- * Each core has a RX and a TX queue on each ethernet device.
- */
-struct queue {
-    uint16_t id;
-};
-
-struct core {
-    struct queue rx_queues[RTE_MAX_ETHPORTS];
-    struct queue tx_queues[RTE_MAX_ETHPORTS];
-};
 
 /*
  * Main loop, executed by every core except the master.
@@ -29,8 +18,26 @@ struct core {
 static int
 main_loop(void *pcore)
 {
+    uint8_t port;
+    uint8_t eth_dev_count;
     struct core *core = pcore;
+    struct rte_mbuf *pkts[64];
+    uint16_t i;
+    uint16_t nb_pkts;
 
+    eth_dev_count = rte_eth_dev_count();
+
+    while (1) {
+        for (port = 0; port < eth_dev_count; ++port) {
+
+            nb_pkts = rte_eth_rx_burst(port, core->rx_queues[port].id,
+                                       pkts, sizeof(pkts) / sizeof(*pkts));
+
+            for (i = 0; i < nb_pkts; ++i) {
+                handle_packet(pkts[i], core);
+            }
+        }
+    }
     return 0;
 }
 

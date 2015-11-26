@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <unistd.h>
 
 #include <rte_common.h>
 #include <rte_eal.h>
@@ -281,6 +282,10 @@ MAIN(int argc, char **argv)
     ret = run_workers();
     if (ret < 0) {
         rte_exit(EXIT_FAILURE, "Unable to launch workers\n");
+    }
+
+    while (1) {
+        pause();
     }
 
     return EXIT_SUCCESS;

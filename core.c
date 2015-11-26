@@ -11,11 +11,21 @@
 
 
 /*
+ * Each core has a RX and a TX queue on each ethernet device.
+ */
+struct core {
+    uint16_t rx_queues[RTE_MAX_ETHPORTS];
+    uint16_t tx_queues[RTE_MAX_ETHPORTS];
+};
+
+/*
  * Main loop, executed by every core except the master.
  */
 static int
-main_loop(__attribute__((unused)) void *arg)
+main_loop(void *pcore)
 {
+    struct core *core = pcore;
+
     return 0;
 }
 
@@ -51,7 +61,7 @@ get_or_create_mempool(const char *name,
  * port activated – except the master core.
  */
 static int
-port_init(uint8_t port)
+port_init(uint8_t port, struct core *cores)
 {
     int ret;
 
@@ -186,6 +196,9 @@ port_init(uint8_t port)
                 "Port %i: RX/TX queues %i setup on core %i (socket: %i)\n",
                 port, queue_id, core, socket);
 
+        cores[core].rx_queues[port] = queue_id;
+        cores[core].tx_queues[port] = queue_id;
+
         ++queue_id;
     }
 
@@ -199,33 +212,33 @@ port_init(uint8_t port)
     return 0;
 }
 
-int
-MAIN(int argc, char **argv)
+/*
+ * Setup ethernet devices and run workers.
+ */
+static int
+run_workers(void)
 {
     int ret;
 
     uint8_t port;
     uint8_t eth_dev_count;
     unsigned ncores;
-
-    ret = rte_eal_init(argc, argv);
-    if (ret < 0) {
-		rte_exit(EXIT_FAILURE, "Error with EAL initialization\n");
-    }
-    argc -= ret;
-    argv += ret;
+    unsigned int core;
+    struct core cores[RTE_MAX_LCORE];
 
     eth_dev_count = rte_eth_dev_count();
     if (eth_dev_count == 0) {
-        rte_exit(EXIT_FAILURE,
-                 "No network device using DPDK-compatible driver\n");
+        RTE_LOG(ERR, APP, "No network device using DPDK-compatible driver\n");
+        return -1;
     }
 
     ncores = rte_lcore_count();
     if (ncores < 2) {
-        rte_exit(EXIT_FAILURE, "Invalid coremask. The master core being "
-                 "used for statistics, at least one other core needs to be "
-                 "activated for networking\n");
+        RTE_LOG(ERR, APP,
+                "Invalid coremask. The master core being used for statistics, "
+                "at least one other core needs to be activated for "
+                "networking\n");
+        return -1;
     }
 
     RTE_LOG(INFO, APP, "Using %i ethernet devices\n", eth_dev_count);
@@ -234,19 +247,41 @@ MAIN(int argc, char **argv)
     // Configure ports
     for (port = 0; port < eth_dev_count; ++port) {
         RTE_LOG(INFO, APP, "Configuring port %i...\n", port);
-        ret = port_init(port);
+        ret = port_init(port, cores);
         if (ret < 0) {
-            rte_exit(EXIT_FAILURE, "Cannot initialize network ports\n");
+            RTE_LOG(ERR, APP, "Cannot initialize network ports\n");
+            return -1;
         }
         RTE_LOG(INFO, APP, "Port %i configured!\n", port);
     }
 
-    ret = rte_eal_mp_remote_launch(main_loop, NULL, SKIP_MASTER);
-    if (ret < 0) {
-        rte_exit(EXIT_FAILURE, "Unable to launch threads\n");
+    RTE_LCORE_FOREACH_SLAVE(core) {
+        ret = rte_eal_remote_launch(main_loop, &cores[core], core);
+        if (ret < 0) {
+            RTE_LOG(ERR,  APP, "Cannot launch worker for core %i\n", core);
+            return -1;
+        }
     }
 
-    RTE_LOG(DEBUG, APP, "In main...\n");
+    return 0;
+}
+
+int
+MAIN(int argc, char **argv)
+{
+    int ret;
+
+    ret = rte_eal_init(argc, argv);
+    if (ret < 0) {
+		rte_exit(EXIT_FAILURE, "Error with EAL initialization\n");
+    }
+    argc -= ret;
+    argv += ret;
+
+    ret = run_workers();
+    if (ret < 0) {
+        rte_exit(EXIT_FAILURE, "Unable to launch workers\n");
+    }
 
     return EXIT_SUCCESS;
 }

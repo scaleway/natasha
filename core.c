@@ -253,7 +253,6 @@ run_workers(void)
             RTE_LOG(ERR, APP, "Cannot initialize network ports\n");
             return -1;
         }
-        RTE_LOG(INFO, APP, "Port %i configured!\n", port);
     }
 
     RTE_LCORE_FOREACH_SLAVE(core) {

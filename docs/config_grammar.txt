@@ -4,14 +4,13 @@ Configuration file grammar
 CONFIG_FILE     := CONFIG* RULE_PKT+
 
 # Constants
-ETH_PORT        := integer  # < RTE_MAX_ETHPORTS
-VLAN_ID         := integer  # < 4096
-NAT_CONFIG_FILE := str      # relative or absolute path to a NAT configuration file
+ETH_PORT        := integer      # < RTE_MAX_ETHPORTS
+VLAN_ID         := integer      # < 4096
+NAT_CONFIG_FILE := str          # relative or absolute path to a NAT configuration file
+IP_ADDR         := IPv4Address
 
 # Software configuration
-CONFIG          := CONFIG_VLAN
-
-CONFIG_VLAN     := vlan VLAN_ID "on port" ETH_PORT
+CONFIG          := "port" ETH_PORT "ip" IP_ADDR ["vlan" VLAN_ID]
 
 # Rule to process a packet
 RULE_PKT        := RULE_IN [ '|' RULE_FILTER ]+ '|' RULE_OUT

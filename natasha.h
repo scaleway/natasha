@@ -30,4 +30,13 @@ struct core {
     struct queue tx_queues[RTE_MAX_ETHPORTS];
 };
 
+int arp_handle(struct rte_mbuf *pkt, uint8_t port, struct core *core);
+
+// Utility macros
+#define IPv4_FMT            "%i.%i.%i.%i"
+#define IPv4_FMTARGS(ip)    (ip >> 24) & 0xff,   \
+                            (ip >> 16) & 0xff,   \
+                            (ip >>  8) & 0xff,    \
+                            (ip >>  0) & 0xff
+
 #endif

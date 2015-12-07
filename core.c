@@ -16,26 +16,34 @@ dispatch(struct rte_mbuf *pkt, uint8_t port, struct core *core)
 {
     struct ether_hdr *eth_hdr;
     uint16_t eth_type;
+    int status;
 
     eth_hdr = rte_pktmbuf_mtod(pkt, struct ether_hdr *);
     eth_type = rte_be_to_cpu_16(eth_hdr->ether_type);
 
+    status = -1;
+
     switch (eth_type) {
+
     case ETHER_TYPE_ARP:
+        status = arp_handle(pkt, port, core);
         break ;
 
     case ETHER_TYPE_IPv4:
         break ;
 
     case ETHER_TYPE_IPv6:
-        rte_pktmbuf_free(pkt);
         break ;
 
     default:
         RTE_LOG(DEBUG, APP, "Unhandled proto %x on port %d\n", eth_type, port);
-        rte_pktmbuf_free(pkt);
         break ;
     }
+
+    if (status < 0) {
+        rte_pktmbuf_free(pkt);
+    }
+
     return 0;
 }
 

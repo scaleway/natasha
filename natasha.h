@@ -36,20 +36,33 @@ struct app_config {
 
 
 /* Workers */
-struct queue {
+struct rx_queue {
     uint16_t id;
+};
+
+#define MAX_TX_BURST 64
+struct tx_queue {
+    uint16_t id;
+
+    struct rte_mbuf *pkts[MAX_TX_BURST];
+    uint16_t len;
 };
 
 struct core {
     struct app_config *app_config;
 
-    struct queue rx_queues[RTE_MAX_ETHPORTS];
-    struct queue tx_queues[RTE_MAX_ETHPORTS];
+    struct rx_queue rx_queues[RTE_MAX_ETHPORTS];
+    struct tx_queue tx_queues[RTE_MAX_ETHPORTS];
 };
 
 
 int app_config_parse(int argc, char **argv, struct app_config *config);
+
+uint16_t tx_send(struct rte_mbuf *pkt, uint8_t port, struct tx_queue *queue);
+uint16_t tx_flush(uint8_t port, struct tx_queue *queue);
+
 int arp_handle(struct rte_mbuf *pkt, uint8_t port, struct core *core);
+
 
 // Utility macros
 #define IPv4_FMT            "%i.%i.%i.%i"

@@ -9,7 +9,7 @@ include $(RTE_SDK)/mk/rte.vars.mk
 
 APP = nat
 
-SRCS-y := core.c config.c arp.c
+SRCS-y := core.c config.c pkt.c arp.c
 
 CFLAGS += -O3 -g
 CFLAGS += -Wall

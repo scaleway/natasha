@@ -8,7 +8,7 @@
 #include <rte_log.h>
 #include <rte_mempool.h>
 
-#include "core.h"
+#include "natasha.h"
 
 
 static int

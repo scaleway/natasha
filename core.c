@@ -156,8 +156,8 @@ port_init(uint8_t port, struct core *cores)
         int socket;
 
         socket = rte_lcore_to_socket_id(core);
-        snprintf(mempool_name, sizeof(mempool_name), "mempool_socket_%d",
-                 socket);
+        snprintf(mempool_name, sizeof(mempool_name),
+                 "mempool_port_%d_socket_%d", port, socket);
         mempool = get_or_create_mempool(
             mempool_name,
             /* n, number of elements in the pool – optimum size is 2^q-1 */

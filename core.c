@@ -9,8 +9,35 @@
 #include <rte_mempool.h>
 
 #include "core.h"
-#include "pkt.h"
 
+
+static int
+dispatch(struct rte_mbuf *pkt, uint8_t port, struct core *core)
+{
+    struct ether_hdr *eth_hdr;
+    uint16_t eth_type;
+
+    eth_hdr = rte_pktmbuf_mtod(pkt, struct ether_hdr *);
+    eth_type = rte_be_to_cpu_16(eth_hdr->ether_type);
+
+    switch (eth_type) {
+    case ETHER_TYPE_ARP:
+        break ;
+
+    case ETHER_TYPE_IPv4:
+        break ;
+
+    case ETHER_TYPE_IPv6:
+        rte_pktmbuf_free(pkt);
+        break ;
+
+    default:
+        RTE_LOG(DEBUG, APP, "Unhandled proto %x on port %d\n", eth_type, port);
+        rte_pktmbuf_free(pkt);
+        break ;
+    }
+    return 0;
+}
 
 /*
  * Main loop, executed by every core except the master.
@@ -34,7 +61,7 @@ main_loop(void *pcore)
                                        pkts, sizeof(pkts) / sizeof(*pkts));
 
             for (i = 0; i < nb_pkts; ++i) {
-                handle_packet(pkts[i], core);
+                dispatch(pkts[i], port, core);
             }
         }
     }

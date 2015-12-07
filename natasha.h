@@ -1,6 +1,8 @@
 #ifndef CORE_H_
 #define CORE_H_
 
+#include <rte_ethdev.h>
+
 #ifdef RTE_EXEC_ENV_BAREMETAL
     #define MAIN _main
 #else
@@ -21,15 +23,32 @@
 /* Macros for printing using RTE_LOG */
 #define RTE_LOGTYPE_APP RTE_LOGTYPE_USER1
 
+
+/* Application configuration*/
+struct app_config_port {
+    uint32_t ip;
+    int vlan;
+};
+
+struct app_config {
+    struct app_config_port ports[RTE_MAX_ETHPORTS];
+};
+
+
+/* Workers */
 struct queue {
     uint16_t id;
 };
 
 struct core {
+    struct app_config *app_config;
+
     struct queue rx_queues[RTE_MAX_ETHPORTS];
     struct queue tx_queues[RTE_MAX_ETHPORTS];
 };
 
+
+int app_config_parse(int argc, char **argv, struct app_config *config);
 int arp_handle(struct rte_mbuf *pkt, uint8_t port, struct core *core);
 
 // Utility macros

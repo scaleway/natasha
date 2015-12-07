@@ -263,7 +263,7 @@ port_init(uint8_t port, struct core *cores)
  * Setup ethernet devices and run workers.
  */
 static int
-run_workers(void)
+run_workers(struct app_config *config)
 {
     int ret;
 
@@ -302,6 +302,8 @@ run_workers(void)
     }
 
     RTE_LCORE_FOREACH_SLAVE(core) {
+        cores[core].app_config = config;
+
         ret = rte_eal_remote_launch(main_loop, &cores[core], core);
         if (ret < 0) {
             RTE_LOG(ERR,  APP, "Cannot launch worker for core %i\n", core);
@@ -316,6 +318,7 @@ int
 MAIN(int argc, char **argv)
 {
     int ret;
+    struct app_config config;
 
     ret = rte_eal_init(argc, argv);
     if (ret < 0) {
@@ -324,7 +327,12 @@ MAIN(int argc, char **argv)
     argc -= ret;
     argv += ret;
 
-    ret = run_workers();
+    ret = app_config_parse(argc, argv, &config);
+    if (ret < 0) {
+        rte_exit(EXIT_FAILURE, "Unable to parse configuration\n");
+    }
+
+    ret = run_workers(&config);
     if (ret < 0) {
         rte_exit(EXIT_FAILURE, "Unable to launch workers\n");
     }

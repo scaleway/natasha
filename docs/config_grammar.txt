@@ -1,20 +1,26 @@
 Configuration file grammar
 ==========================
 
-CONFIG          := CONFIG_RULE+
+CONFIG_FILE     := CONFIG* RULE_PKT+
 
-CONFIG_RULE     := IN_RULE [ '|' FILTER_RULE ]+ '|' OUT_RULE
-
-VLAN_ID         := integer  # < 4096
+# Constants
 ETH_PORT        := integer  # < RTE_MAX_ETHPORTS
+VLAN_ID         := integer  # < 4096
 NAT_CONFIG_FILE := str      # relative or absolute path to a NAT configuration file
 
-IN_RULE         := "in" ETH_PORT
-OUT_RULE        := out [ETH_PORT | "discard"]
-FILTER_RULE     := [VLAN_RULE | NAT_RULE]
+# Software configuration
+CONFIG          := CONFIG_VLAN
 
-VLAN_RULE       := "vlan" ["encap" | "decap"] VLAN_ID
-NAT_RULE        := "nat" NAT_CONFIG_FILE
+CONFIG_VLAN     := vlan VLAN_ID "on port" ETH_PORT
+
+# Rule to process a packet
+RULE_PKT        := RULE_IN [ '|' RULE_FILTER ]+ '|' RULE_OUT
+
+RULE_IN         := "in" ETH_PORT
+RULE_OUT        := out [ETH_PORT | "discard"]
+RULE_FILTER     := RULE_FILTER_NAT
+
+RULE_FILTER_NAT := "nat" NAT_CONFIG_FILE
 
 
 Examples
@@ -22,7 +28,7 @@ Examples
 
 # using one ports
 
-in 0 | vlan decap 5 | nat /etc/nat_rules.conf | vlan encap 6 | out 0
+in 0 | nat /etc/nat_rules.conf | out 0
 
 # using two ports
 

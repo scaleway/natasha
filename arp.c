@@ -32,7 +32,7 @@ arp_request(struct rte_mbuf *pkt, uint8_t port, struct core *core)
     source_ip = rte_be_to_cpu_32(arp_hdr->arp_data.arp_sip);
     target_ip = rte_be_to_cpu_32(arp_hdr->arp_data.arp_tip);
 
-    RTE_LOG(DEBUG, APP, "Port %d: Who has " IPv4_FMT "? asks " IPv4_FMT "\n",
+    RTE_LOG(INFO, APP, "Port %d: Who has " IPv4_FMT "? asks " IPv4_FMT "\n",
             port, IPv4_FMTARGS(target_ip), IPv4_FMTARGS(source_ip)
     );
 
@@ -68,9 +68,9 @@ arp_request(struct rte_mbuf *pkt, uint8_t port, struct core *core)
     arp_hdr->arp_data.arp_sip = rte_cpu_to_be_32(target_ip);
 
     RTE_LOG(
-        DEBUG, APP, "Port %d: ARP Reply –"
-                    " src MAC=" MAC_FMT " IP=" IPv4_FMT
-                    " dst MAC=" MAC_FMT " IP=" IPv4_FMT "\n",
+        INFO, APP, "Port %d: Send ARP Reply –"
+                   " src ether: " MAC_FMT " IP: " IPv4_FMT
+                   " – dst ether: " MAC_FMT " IP: " IPv4_FMT "\n",
         port,
 
         MAC_FMTARGS(arp_hdr->arp_data.arp_sha),

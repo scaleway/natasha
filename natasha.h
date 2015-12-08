@@ -71,7 +71,7 @@ int arp_handle(struct rte_mbuf *pkt, uint8_t port, struct core *core);
                             ((ip) >>  8) & 0xff,    \
                             ((ip) >>  0) & 0xff
 
-#define MAC_FMT                 "%x%x.%x%x.%x%x"
+#define MAC_FMT                 "%x:%x:%x:%x:%x:%x"
 #define MAC_FMTARGS(ether_addr) (ether_addr).addr_bytes[0], \
                                 (ether_addr).addr_bytes[1], \
                                 (ether_addr).addr_bytes[2], \

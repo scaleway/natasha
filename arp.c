@@ -82,7 +82,6 @@ arp_request(struct rte_mbuf *pkt, uint8_t port, struct core *core)
     );
 
     tx_send(pkt, port, &core->tx_queues[port]);
-    tx_flush(port, &core->tx_queues[port]);
 
     // Do not free pkt
     return 0;

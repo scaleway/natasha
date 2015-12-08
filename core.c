@@ -12,7 +12,7 @@
 
 
 static int
-dispatch(struct rte_mbuf *pkt, uint8_t port, struct core *core)
+dispatch_packet(struct rte_mbuf *pkt, uint8_t port, struct core *core)
 {
     struct ether_hdr *eth_hdr;
     uint16_t eth_type;
@@ -47,6 +47,22 @@ dispatch(struct rte_mbuf *pkt, uint8_t port, struct core *core)
     return 0;
 }
 
+static int
+handle_port(uint8_t port, struct core *core)
+{
+    struct rte_mbuf *pkts[64];
+    uint16_t i;
+    uint16_t nb_pkts;
+
+    nb_pkts = rte_eth_rx_burst(port, core->rx_queues[port].id,
+                               pkts, sizeof(pkts) / sizeof(*pkts));
+
+    for (i = 0; i < nb_pkts; ++i) {
+        dispatch_packet(pkts[i], port, core);
+    }
+    return 0;
+}
+
 /*
  * Main loop, executed by every core except the master.
  */
@@ -56,21 +72,12 @@ main_loop(void *pcore)
     uint8_t port;
     uint8_t eth_dev_count;
     struct core *core = pcore;
-    struct rte_mbuf *pkts[64];
-    uint16_t i;
-    uint16_t nb_pkts;
 
     eth_dev_count = rte_eth_dev_count();
 
     while (1) {
         for (port = 0; port < eth_dev_count; ++port) {
-
-            nb_pkts = rte_eth_rx_burst(port, core->rx_queues[port].id,
-                                       pkts, sizeof(pkts) / sizeof(*pkts));
-
-            for (i = 0; i < nb_pkts; ++i) {
-                dispatch(pkts[i], port, core);
-            }
+            handle_port(port, core);
         }
     }
     return 0;

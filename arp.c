@@ -2,22 +2,8 @@
 #include <rte_ether.h>
 
 #include "natasha.h"
+#include "network_headers.h"
 
-
-static struct ether_hdr *
-eth_header(struct rte_mbuf *pkt)
-{
-    return rte_pktmbuf_mtod((pkt), struct ether_hdr *);
-}
-
-static struct arp_hdr *
-arp_header(struct rte_mbuf *pkt)
-{
-    unsigned char *p;
-
-    p = rte_pktmbuf_mtod(pkt, unsigned char *) + sizeof(struct ether_hdr);
-    return (struct arp_hdr *)p;
-}
 
 static int
 arp_request(struct rte_mbuf *pkt, uint8_t port, struct core *core)

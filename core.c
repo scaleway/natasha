@@ -39,8 +39,6 @@ dispatch_packet(struct rte_mbuf *pkt, uint8_t port, struct core *core)
         break ;
 
     case ETHER_TYPE_IPv6:
-        break ;
-
     default:
         RTE_LOG(DEBUG, APP, "Unhandled proto %x on port %d\n", eth_type, port);
         break ;

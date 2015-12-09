@@ -62,6 +62,7 @@ uint16_t tx_send(struct rte_mbuf *pkt, uint8_t port, struct tx_queue *queue);
 uint16_t tx_flush(uint8_t port, struct tx_queue *queue);
 
 int arp_handle(struct rte_mbuf *pkt, uint8_t port, struct core *core);
+int ipv4_handle(struct rte_mbuf *pkt, uint8_t port, struct core *core);
 
 
 // Utility macros

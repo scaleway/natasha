@@ -1,9 +1,11 @@
 #ifndef NETWORK_HEADERS_H_
 #define NETWORK_HEADERS_H_
 
-#include <rte_mbuf.h>
 #include <rte_ether.h>
+#include <rte_mbuf.h>
+
 #include <rte_arp.h>
+#include <rte_ip.h>
 
 
 static inline struct ether_hdr *
@@ -23,6 +25,7 @@ eth_header(struct rte_mbuf *pkt)
     }
 
 _CREATE_FUNC_FOR_PROTO(arp, struct arp_hdr);
+_CREATE_FUNC_FOR_PROTO(ipv4, struct ipv4_hdr);
 
 #undef _CREATE_FUNC_FOR_PROTO
 

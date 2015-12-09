@@ -36,6 +36,7 @@ dispatch_packet(struct rte_mbuf *pkt, uint8_t port, struct core *core)
         break ;
 
     case ETHER_TYPE_IPv4:
+        status = ipv4_handle(pkt, port, core);
         break ;
 
     case ETHER_TYPE_IPv6:

@@ -5,6 +5,7 @@
 #include <rte_mbuf.h>
 
 #include <rte_arp.h>
+#include <rte_icmp.h>
 #include <rte_ip.h>
 
 
@@ -28,5 +29,14 @@ _CREATE_FUNC_FOR_PROTO(arp, struct arp_hdr);
 _CREATE_FUNC_FOR_PROTO(ipv4, struct ipv4_hdr);
 
 #undef _CREATE_FUNC_FOR_PROTO
+
+static inline struct icmp_hdr *
+icmp_header(struct rte_mbuf *pkt)
+{
+    struct ipv4_hdr *p;
+
+    p = ipv4_header(pkt);
+    return (struct icmp_hdr *)((unsigned char *)p + sizeof(*p));
+}
 
 #endif

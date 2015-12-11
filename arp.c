@@ -67,10 +67,7 @@ arp_request(struct rte_mbuf *pkt, uint8_t port, struct core *core)
         IPv4_FMTARGS(target_ip)
     );
 
-    tx_send(pkt, port, &core->tx_queues[port]);
-
-    // Do not free pkt
-    return 0;
+    return tx_send(pkt, port, &core->tx_queues[port]);
 }
 
 int

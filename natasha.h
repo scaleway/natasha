@@ -96,6 +96,10 @@ struct app_config {
     struct app_config_rule rules[64]; // max 64 rules
 };
 
+struct ipv4_network {
+    uint32_t ip;
+    uint32_t mask;
+};
 
 /*
  * Prototypes.
@@ -107,6 +111,13 @@ uint16_t tx_flush(uint8_t port, struct tx_queue *queue);
 
 int arp_handle(struct rte_mbuf *pkt, uint8_t port, struct core *core);
 int ipv4_handle(struct rte_mbuf *pkt, uint8_t port, struct core *core);
+
+// Rule conditions
+int cond_ipv4_src_in_network(struct rte_mbuf *pkt, uint8_t port,
+                             struct core *core, void *data);
+
+int cond_ipv4_dst_in_network(struct rte_mbuf *pkt, uint8_t port,
+                             struct core *core, void *data);
 
 // Rule actions
 RULE_ACTION action_print(struct rte_mbuf *pkt, uint8_t port, struct core *core,

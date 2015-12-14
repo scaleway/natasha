@@ -12,6 +12,7 @@ APP = nat
 SRCS-y := 			\
 	action_log.c	\
 	arp.c			\
+	cond_network.c	\
 	config.c 		\
 	core.c 			\
 	ipv4.c			\

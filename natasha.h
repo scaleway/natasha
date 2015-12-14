@@ -108,6 +108,10 @@ uint16_t tx_flush(uint8_t port, struct tx_queue *queue);
 int arp_handle(struct rte_mbuf *pkt, uint8_t port, struct core *core);
 int ipv4_handle(struct rte_mbuf *pkt, uint8_t port, struct core *core);
 
+// Rule actions
+RULE_ACTION action_print(struct rte_mbuf *pkt, uint8_t port, struct core *core,
+                         void *data);
+
 
 /*
  * Utility macros.

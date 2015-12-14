@@ -336,7 +336,7 @@ run_workers(struct app_config *config)
 
         ret = rte_eal_remote_launch(main_loop, &cores[core], core);
         if (ret < 0) {
-            RTE_LOG(ERR,  APP, "Cannot launch worker for core %i\n", core);
+            RTE_LOG(ERR, APP, "Cannot launch worker for core %i\n", core);
             return -1;
         }
     }

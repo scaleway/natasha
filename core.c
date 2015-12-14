@@ -332,6 +332,7 @@ run_workers(struct app_config *config)
     }
 
     RTE_LCORE_FOREACH_SLAVE(core) {
+        cores[core].id = core;
         cores[core].app_config = config;
 
         ret = rte_eal_remote_launch(main_loop, &cores[core], core);

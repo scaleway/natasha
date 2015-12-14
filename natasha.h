@@ -43,6 +43,7 @@ struct tx_queue {
 
 // A core and its queues. Each core has one rx queue and one tx queue per port.
 struct core {
+    int id;
     struct app_config *app_config;
 
     struct rx_queue rx_queues[RTE_MAX_ETHPORTS];

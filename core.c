@@ -345,7 +345,7 @@ run_workers(struct app_config *config)
 }
 
 int
-MAIN(int argc, char **argv)
+main(int argc, char **argv)
 {
     int ret;
     struct app_config config;

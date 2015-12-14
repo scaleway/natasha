@@ -3,12 +3,6 @@
 
 #include <rte_ethdev.h>
 
-#ifdef RTE_EXEC_ENV_BAREMETAL
-    #define MAIN _main
-#else
-    #define MAIN main
-#endif
-
 /* Configure logging */
 #ifdef DEBUG
     #define LOG_LEVEL RTE_LOG_DEBUG

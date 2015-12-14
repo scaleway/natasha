@@ -2,6 +2,7 @@
 
 #include "natasha.h"
 #include "network_headers.h"
+#include "cond_network.h"
 
 
 /*

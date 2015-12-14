@@ -103,6 +103,51 @@ icmp_answer(struct rte_mbuf *pkt, uint8_t port, struct core *core)
     return -1;
 }
 
+static int
+process_rules(struct rte_mbuf *pkt, uint8_t port, struct core *core)
+{
+    const struct app_config *cfg = core->app_config;
+    size_t i;
+    size_t j;
+    int ret;
+
+    // for each rule
+    for (i = 0;
+         i < sizeof(cfg->rules) / sizeof(*cfg->rules)
+            && cfg->rules[i].actions[0].f;
+         ++i
+    ) {
+
+        const struct app_config_rule *rule = &cfg->rules[i];
+
+        // if we need to execute this rule, execute the actions
+        if (rule->only_if.f == NULL ||
+            rule->only_if.f(pkt, port, core, rule->only_if.params)) {
+
+            for (j = 0;
+                 j < sizeof(rule->actions) / sizeof(*rule->actions)
+                    && rule->actions[j].f;
+                 ++j
+            ) {
+                ret = rule->actions[j].f(pkt, port, core,
+                                         rule->actions[j].params);
+
+                // stop processing rules
+                if (ret == ACTION_BREAK) {
+                    return 0;
+                }
+                // else, ret == ACTION_NEXT, process the next rule.
+            }
+        }
+    }
+    return -1;
+}
+
+/*
+ * Handle the ipv4 pkt:
+ *  - if it is a ICMP message addressed to one of our interfaces, answer to it.
+ *  - otherwise, process the configuration rules.
+ */
 int
 ipv4_handle(struct rte_mbuf *pkt, uint8_t port, struct core *core)
 {
@@ -117,17 +162,11 @@ ipv4_handle(struct rte_mbuf *pkt, uint8_t port, struct core *core)
     }
     ipv4_hdr->time_to_live--;
 
-    switch (ipv4_hdr->next_proto_id) {
-
-    case IPPROTO_ICMP:
+    if (ipv4_hdr->next_proto_id == IPPROTO_ICMP) {
         if ((ret = icmp_answer(pkt, port, core)) >= 0) {
             return ret;
         }
-        break ;
-
-    default:
-        break ;
     }
 
-    return -1;
+    return process_rules(pkt, port, core);
 }

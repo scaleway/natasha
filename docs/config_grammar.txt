@@ -10,7 +10,6 @@ IP_ADDR         := IPv4Address
 MASK            := int
 NETWORK         := IP_ADDR/MASK
 IP_FIELD        := ["ipv4.src_addr" | "ipv4.dst_addr"]
-NAT_LABEL       := ["int" | "ext"]
 
 
 CONFIG_FILE     := PORT_CONFIG+ RULE_PKT+
@@ -25,7 +24,7 @@ RULE_CONDITIONS := "if" IP_FIELD "in" NETWORK ["and" IP_FIELD "in" NETWORK]*
 
 RULE_ACTION     := RULE_ACTION_NAT | RULE_ACTION_OUT
 
-RULE_ACTION_NAT := "nat" IP_FIELD NAT_LABEL "using" NAT_CONFIG_FILE
+RULE_ACTION_NAT := "nat" IP_FIELD "using" NAT_CONFIG_FILE
 RULE_ACTION_OUT := "out" ["port" ETH_PORT "mac" MAC_ADDRESS "vlan" VLAN_ID | "discard"]
 
 
@@ -36,21 +35,21 @@ port 0 ip 10.2.31.11
 port 1 ip 212.47.255.91
 
 if ipv4.src_addr in 10.0.0.0/8 and ipv4.dst_addr in 212.0.0.0/8
-    nat ext ipv4.dst_addr using nat_rules.conf    # rewrite the "ext" dst addr
-    nat int ipv4.src_addr using nat_rules.conf    # rewrite the "int" src addr
+    nat ipv4.dst_addr using nat_rules.conf    # rewrite dst addr
+    nat ipv4.src_addr using nat_rules.conf    # rewrite src addr
     out port 0 mac 7c:0e:ce:25:f3:97 vlan 33
 
 if ipv4.src_addr in 10.0.0.0/8
-    nat int ipv4.src_addr using nat_rules.conf    # rewrite the "int" src addr
+    nat ipv4.src_addr using nat_rules.conf
     out port 1 mac 7c:0e:ce:25:f3:97 vlan 24
 
 if ipv4.dst_addr in 212.0.0.0/8
-    nat ext ipv4.dst_addr using nat_rules.conf    # rewrite the "ext" dst addr
+    nat ipv4.dst_addr using nat_rules.conf    # rewrite dst addr
     out port 0 mac 7c:0e:ce:25:f3:97 vlan 33
 
 
 nat_rules.conf:
 
-int 10.0.0.0 is ext 212.24.3.7
-int 10.0.0.1 is ext 212.24.3.8
-int 10.0.0.9 is ext 212.24.3.9
+10.0.0.0 -> 212.24.3.7
+10.0.0.1 -> 212.24.3.8
+10.0.0.9 -> 212.24.3.9

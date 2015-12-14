@@ -14,7 +14,7 @@
 
 // Flush TX queues after ~BURST_TX_DRAIN_US microseconds.
 static const int
-BURST_TX_DRAIN_US = 10000; // 1ms
+BURST_TX_DRAIN_US = 1000; // 0.1ms
 
 
 static int

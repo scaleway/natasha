@@ -1,43 +1,56 @@
 Configuration file grammar
 ==========================
 
-CONFIG_FILE     := CONFIG* RULE_PKT+
-
 # Constants
 ETH_PORT        := integer      # < RTE_MAX_ETHPORTS
 VLAN_ID         := integer      # < 4096
+MAC_ADDRESS     := str          # xx:xx:xx:xx:xx:xx
 NAT_CONFIG_FILE := str          # relative or absolute path to a NAT configuration file
 IP_ADDR         := IPv4Address
+MASK            := int
+NETWORK         := IP_ADDR/MASK
+IP_FIELD        := ["ipv4.src_addr" | "ipv4.dst_addr"]
+NAT_LABEL       := ["int" | "ext"]
+
+
+CONFIG_FILE     := PORT_CONFIG+ RULE_PKT+
 
 # Software configuration
-CONFIG          := "port" ETH_PORT "ip" IP_ADDR ["vlan" VLAN_ID]
+PORT_CONFIG     := "port" ETH_PORT "ip" IP_ADDR
 
 # Rule to process a packet
-RULE_PKT        := RULE_IN [ '|' RULE_FILTER ]+ '|' RULE_OUT
+RULE_PKT        := [RULE_CONDITIONS] [RULE_ACTION]*
 
-RULE_IN         := "in" ETH_PORT
-RULE_OUT        := out [ETH_PORT | "discard"]
-RULE_FILTER     := RULE_FILTER_NAT
+RULE_CONDITIONS := "if" IP_FIELD "in" NETWORK ["and" IP_FIELD "in" NETWORK]*
 
-RULE_FILTER_NAT := "nat" NAT_CONFIG_FILE
+RULE_ACTION     := RULE_ACTION_NAT | RULE_ACTION_OUT
 
-
-Examples
-========
-
-# using one ports
-
-in 0 | nat /etc/nat_rules.conf | out 0
-
-# using two ports
-
-in 0 | nat /etc/nat_rules.conf | out 1
-in 1 | nat /etc/nat_rules.conf | out 1
+RULE_ACTION_NAT := "nat" IP_FIELD NAT_LABEL "using" NAT_CONFIG_FILE
+RULE_ACTION_OUT := "out" ["port" ETH_PORT "mac" MAC_ADDRESS "vlan" VLAN_ID | "discard"]
 
 
-Evolution?
-==========
+Configuration file example
+==========================
 
-It would be awesome to handle configurations, such as:
+port 0 ip 10.2.31.11
+port 1 ip 212.47.255.91
 
-in 0 | vlan decap 5 | if ip.src matches 212.83.0.0/16 then discard else nat /etc/nat_rules.conf | out 0
+if ipv4.src_addr in 10.0.0.0/8 and ipv4.dst_addr in 212.0.0.0/8
+    nat ext ipv4.dst_addr using nat_rules.conf    # rewrite the "ext" dst addr
+    nat int ipv4.src_addr using nat_rules.conf    # rewrite the "int" src addr
+    out port 0 mac 7c:0e:ce:25:f3:97 vlan 33
+
+if ipv4.src_addr in 10.0.0.0/8
+    nat int ipv4.src_addr using nat_rules.conf    # rewrite the "int" src addr
+    out port 1 mac 7c:0e:ce:25:f3:97 vlan 24
+
+if ipv4.dst_addr in 212.0.0.0/8
+    nat ext ipv4.dst_addr using nat_rules.conf    # rewrite the "ext" dst addr
+    out port 0 mac 7c:0e:ce:25:f3:97 vlan 33
+
+
+nat_rules.conf:
+
+int 10.0.0.0 is ext 212.24.3.7
+int 10.0.0.1 is ext 212.24.3.8
+int 10.0.0.9 is ext 212.24.3.9

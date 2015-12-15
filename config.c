@@ -21,7 +21,7 @@ static struct ipv4_network int_pkt = {
  * free it.
  */
 int
-app_config_load(struct app_config *config, int argc, char **argv)
+app_config_reload(struct app_config *config, int argc, char **argv)
 {
     config->ports[0].ip = IPv4(10, 2, 31, 11);
     config->ports[1].ip = IPv4(212, 47, 255, 91);

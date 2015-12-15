@@ -108,8 +108,7 @@ struct core {
 /*
  * Prototypes.
  */
-int app_config_init(struct app_config *config);
-int app_config_load(struct app_config *config, int argc, char **argv);
+int app_config_reload(struct app_config *config, int argc, char **argv);
 
 uint16_t tx_send(struct rte_mbuf *pkt, uint8_t port, struct tx_queue *queue);
 uint16_t tx_flush(uint8_t port, struct tx_queue *queue);

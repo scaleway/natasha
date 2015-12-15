@@ -70,7 +70,7 @@ reload_conf(struct core *core)
 {
     int ret;
 
-    ret = app_config_load(&core->app_config, core->app_argc, core->app_argv);
+    ret = app_config_reload(&core->app_config, core->app_argc, core->app_argv);
     if (ret >= 0) {
         core->need_reload_conf = 0;
     }

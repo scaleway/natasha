@@ -1,6 +1,3 @@
-#include <stdio.h>
-#include <unistd.h>
-
 #include <rte_common.h>
 #include <rte_cycles.h>
 #include <rte_eal.h>
@@ -373,6 +370,8 @@ int
 main(int argc, char **argv)
 {
     int ret;
+    unsigned int core;
+    unsigned int tmp;
 
     ret = rte_eal_init(argc, argv);
     if (ret < 0) {
@@ -386,8 +385,29 @@ main(int argc, char **argv)
         rte_exit(EXIT_FAILURE, "Unable to launch workers\n");
     }
 
+    // Check if slaves are still running, and log if they exit.
+    tmp = 0;
     while (1) {
-        pause();
+        unsigned int running;
+
+        running = 0;
+        RTE_LCORE_FOREACH_SLAVE(core) {
+            if (rte_eal_get_lcore_state(core) == RUNNING) {
+                running += 1;
+            }
+        }
+
+        if (running == 0) {
+            rte_exit(EXIT_FAILURE, "No more core running, exit\n");
+        }
+
+        if (running < tmp) {
+            RTE_LOG(EMERG, APP,
+                    "Some cores stopped working! Only %i cores are running\n",
+                    running);
+        }
+
+        tmp = running;
     }
 
     return EXIT_SUCCESS;

@@ -68,6 +68,19 @@ handle_port(uint8_t port, struct core *core)
     return 0;
 }
 
+int
+reload_conf(struct core *core)
+{
+    int ret;
+
+    ret = app_config_parse(core->app_argc, core->app_argv,
+                           &core->app_config);
+    if (ret >= 0) {
+        core->need_reload_conf = 0;
+    }
+    return ret;
+}
+
 /*
  * Main loop, executed by every core except the master.
  */
@@ -83,11 +96,21 @@ main_loop(void *pcore)
         (rte_get_tsc_hz() + US_PER_S - 1) / US_PER_S * BURST_TX_DRAIN_US;
 
     eth_dev_count = rte_eth_dev_count();
+    core->need_reload_conf = 1;
 
     prev_tsc = rte_rdtsc();
     while (1) {
         const uint64_t cur_tsc = rte_rdtsc();
         int need_flush;
+
+        if (core->need_reload_conf) {
+            if (reload_conf(core) < 0) {
+                RTE_LOG(CRIT, APP,
+                    "Unable to load app configuration for core %i, stop "
+                    "running\n", core->id);
+                return -1;
+            }
+        }
 
         // We need to flush if the last flush occured more than drain_tsc ago.
         need_flush = (cur_tsc - prev_tsc > drain_tsc) ? 1 : 0;
@@ -293,7 +316,7 @@ port_init(uint8_t port, struct core *cores)
  * Setup ethernet devices and run workers.
  */
 static int
-run_workers(struct app_config *config)
+run_workers(int argc, char **argv)
 {
     int ret;
 
@@ -333,7 +356,8 @@ run_workers(struct app_config *config)
 
     RTE_LCORE_FOREACH_SLAVE(core) {
         cores[core].id = core;
-        cores[core].app_config = config;
+        cores[core].app_argc = argc;
+        cores[core].app_argv = argv;
 
         ret = rte_eal_remote_launch(main_loop, &cores[core], core);
         if (ret < 0) {
@@ -349,7 +373,6 @@ int
 main(int argc, char **argv)
 {
     int ret;
-    struct app_config config;
 
     ret = rte_eal_init(argc, argv);
     if (ret < 0) {
@@ -358,12 +381,7 @@ main(int argc, char **argv)
     argc -= ret;
     argv += ret;
 
-    ret = app_config_parse(argc, argv, &config);
-    if (ret < 0) {
-        rte_exit(EXIT_FAILURE, "Unable to parse configuration\n");
-    }
-
-    ret = run_workers(&config);
+    ret = run_workers(argc, argv);
     if (ret < 0) {
         rte_exit(EXIT_FAILURE, "Unable to launch workers\n");
     }

@@ -23,7 +23,7 @@ arp_request(struct rte_mbuf *pkt, uint8_t port, struct core *core)
     );
 
     // This request is not for me
-    if (target_ip != core->app_config->ports[port].ip) {
+    if (target_ip != core->app_config.ports[port].ip) {
         RTE_LOG(DEBUG, APP,
                 "Port %d: " IPv4_FMT " is not my IP address,"
                 " ARP request ignored\n", port, IPv4_FMTARGS(target_ip));

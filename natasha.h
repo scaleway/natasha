@@ -21,39 +21,11 @@
 
 
 /*
- * Workers and queues configuration.
- */
-
-// Network receive queue.
-struct rx_queue {
-    uint16_t id;
-};
-
-#define MAX_TX_BURST 64
-// Network transmit queue.
-struct tx_queue {
-    uint16_t id;
-
-    // Packets to send.
-    struct rte_mbuf *pkts[MAX_TX_BURST];
-
-    // Number of packets in pkts.
-    uint16_t len;
-};
-
-// A core and its queues. Each core has one rx queue and one tx queue per port.
-struct core {
-    int id;
-    struct app_config *app_config;
-
-    struct rx_queue rx_queues[RTE_MAX_ETHPORTS];
-    struct tx_queue tx_queues[RTE_MAX_ETHPORTS];
-};
-
-
-/*
  * Application configuration.
  */
+
+// Forward declaration. Defined under "Workers and queues configuration".
+struct core;
 
 // Network port.
 struct app_config_port {
@@ -94,6 +66,43 @@ struct app_config_rule {
 struct app_config {
     struct app_config_port ports[RTE_MAX_ETHPORTS];
     struct app_config_rule rules[64]; // max 64 rules
+};
+
+
+/*
+ * Workers and queues configuration.
+ */
+
+// Network receive queue.
+struct rx_queue {
+    uint16_t id;
+};
+
+#define MAX_TX_BURST 64
+// Network transmit queue.
+struct tx_queue {
+    uint16_t id;
+
+    // Packets to send.
+    struct rte_mbuf *pkts[MAX_TX_BURST];
+
+    // Number of packets in pkts.
+    uint16_t len;
+};
+
+// A core and its queues. Each core has one rx queue and one tx queue per port.
+struct core {
+    int id;
+
+    int app_argc;
+    char **app_argv;
+    struct app_config app_config;
+
+    // true if configuration must be reloaded
+    int need_reload_conf;
+
+    struct rx_queue rx_queues[RTE_MAX_ETHPORTS];
+    struct tx_queue tx_queues[RTE_MAX_ETHPORTS];
 };
 
 /*

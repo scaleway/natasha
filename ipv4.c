@@ -89,7 +89,7 @@ icmp_answer(struct rte_mbuf *pkt, uint8_t port, struct core *core)
 
     for (n = 0; n < RTE_MAX_ETHPORTS; ++n) {
 
-        if (dst_ip == core->app_config->ports[n].ip) {
+        if (dst_ip == core->app_config.ports[n].ip) {
             ret = icmp_dispatch(pkt, port, core);
             // Even if we can't handle pkt, it is addressed to us. Drop it and
             // return 0 to mark it as processed.
@@ -106,7 +106,7 @@ icmp_answer(struct rte_mbuf *pkt, uint8_t port, struct core *core)
 static int
 process_rules(struct rte_mbuf *pkt, uint8_t port, struct core *core)
 {
-    const struct app_config *cfg = core->app_config;
+    const struct app_config *cfg = &core->app_config;
     size_t i;
     size_t j;
     int ret;

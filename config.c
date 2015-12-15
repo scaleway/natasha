@@ -16,11 +16,13 @@ static struct ipv4_network int_pkt = {
 //};
 
 
+/*
+ * Load or reload configuration. If a configuration is already loaded,
+ * free it.
+ */
 int
-app_config_parse(int argc, char **argv, struct app_config *config)
+app_config_load(struct app_config *config, int argc, char **argv)
 {
-    memset(config, 0, sizeof(*config));
-
     config->ports[0].ip = IPv4(10, 2, 31, 11);
     config->ports[1].ip = IPv4(212, 47, 255, 91);
 
@@ -31,5 +33,15 @@ app_config_parse(int argc, char **argv, struct app_config *config)
     //config->rules[1].only_if.f = cond_ipv4_dst_in_network;
     //config->rules[1].only_if.params = &ext_pkt;
     //config->rules[1].actions[0].f = action_print;
+    return 0;
+}
+
+/*
+ * Initialize the configuration with default values.
+ */
+int
+app_config_init(struct app_config *config)
+{
+    memset(config, 0, sizeof(*config));
     return 0;
 }

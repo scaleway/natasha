@@ -70,8 +70,7 @@ reload_conf(struct core *core)
 {
     int ret;
 
-    ret = app_config_parse(core->app_argc, core->app_argv,
-                           &core->app_config);
+    ret = app_config_load(&core->app_config, core->app_argc, core->app_argv);
     if (ret >= 0) {
         core->need_reload_conf = 0;
     }
@@ -92,9 +91,10 @@ main_loop(void *pcore)
     const uint64_t drain_tsc =
         (rte_get_tsc_hz() + US_PER_S - 1) / US_PER_S * BURST_TX_DRAIN_US;
 
-    eth_dev_count = rte_eth_dev_count();
+    app_config_init(&core->app_config);
     core->need_reload_conf = 1;
 
+    eth_dev_count = rte_eth_dev_count();
     prev_tsc = rte_rdtsc();
     while (1) {
         const uint64_t cur_tsc = rte_rdtsc();

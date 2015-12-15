@@ -35,13 +35,3 @@ app_config_load(struct app_config *config, int argc, char **argv)
     //config->rules[1].actions[0].f = action_print;
     return 0;
 }
-
-/*
- * Initialize the configuration with default values.
- */
-int
-app_config_init(struct app_config *config)
-{
-    memset(config, 0, sizeof(*config));
-    return 0;
-}

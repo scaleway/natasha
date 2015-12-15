@@ -91,9 +91,7 @@ main_loop(void *pcore)
     const uint64_t drain_tsc =
         (rte_get_tsc_hz() + US_PER_S - 1) / US_PER_S * BURST_TX_DRAIN_US;
 
-    app_config_init(&core->app_config);
     core->need_reload_conf = 1;
-
     eth_dev_count = rte_eth_dev_count();
     prev_tsc = rte_rdtsc();
     while (1) {
@@ -321,7 +319,7 @@ run_workers(int argc, char **argv)
     uint8_t eth_dev_count;
     unsigned ncores;
     unsigned int core;
-    struct core cores[RTE_MAX_LCORE];
+    struct core cores[RTE_MAX_LCORE] = {};
 
     eth_dev_count = rte_eth_dev_count();
     if (eth_dev_count == 0) {

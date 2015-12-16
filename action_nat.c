@@ -12,10 +12,73 @@ static const int lkp_fs = 256; // 2^8
 static const int lkp_ss = 256; // 2^8
 static const int lkp_ts = 65536; // 2^16
 
+/*
+ * Search for ip in the NAT lookup table, and store the result in value.
+ *
+ * @return
+ *  - -1 if ip is not in lookup_table.
+ */
+static int
+nat_lookup_ip(uint32_t ***lookup_table, uint32_t ip, uint32_t *value)
+{
+    // first byte, second byte, last 2 bytes
+    const int fstb = (ip >> 24) & 0xff;
+    const int sndb = (ip >> 16) & 0xff;
+    const int l2b = (ip & 0xff00) | (ip & 0xff);
+    uint32_t res;
+
+    if (lookup_table == NULL ||
+        lookup_table[fstb] == NULL ||
+        lookup_table[fstb][sndb] == NULL) {
+
+        return -1;
+    }
+
+    res = lookup_table[fstb][sndb][l2b];
+    if (res == 0) {
+        return -1;
+    }
+    *value = res;
+    return 0;
+}
+
+/*
+ * Search ip in lookup_table and rewrite field. If ip is not found, drop pkt.
+ */
+static RULE_ACTION
+lookup_and_rewrite(struct rte_mbuf *pkt, uint32_t ***lookup_table, uint32_t ip,
+                   uint32_t *field)
+{
+    uint32_t res;
+
+    if (nat_lookup_ip(lookup_table, ip, &res) < 0) {
+        rte_pktmbuf_free(pkt);
+        return ACTION_BREAK;
+    }
+
+    *field = rte_cpu_to_be_32(res);
+    return ACTION_NEXT;
+}
+
 RULE_ACTION
 action_nat_rewrite(struct rte_mbuf *pkt, uint8_t port, struct core *core, void *data)
 {
-    return ACTION_NEXT;
+    nat_rewrite_field_t field_to_rewrite = *(nat_rewrite_field_t *)data;
+    struct ipv4_hdr *ipv4_hdr = ipv4_header(pkt);
+
+    if (field_to_rewrite == IPV4_SRC_ADDR) {
+        return lookup_and_rewrite(
+            pkt, core->app_config.nat_lookup,
+            rte_be_to_cpu_32(ipv4_hdr->src_addr),
+            &ipv4_hdr->src_addr
+        );
+    } else {
+        return lookup_and_rewrite(
+            pkt, core->app_config.nat_lookup,
+            rte_be_to_cpu_32(ipv4_hdr->dst_addr),
+            &ipv4_hdr->dst_addr
+        );
+    }
 }
 
 /*

@@ -215,7 +215,7 @@ port_init(uint8_t port, struct core *cores)
             // Drop packets if no descriptors are available.
             .rx_drop_en = 1,
             // Do not start queue with rte_eth_dev_start().
-	        .rx_deferred_start = 0,
+            .rx_deferred_start = 0,
         };
         static const struct rte_eth_txconf tx_conf = {
             .tx_thresh = {
@@ -231,7 +231,7 @@ port_init(uint8_t port, struct core *cores)
             // Set flags for the Tx queue.
             .txq_flags = 0,
             // Do not start queue with rte_eth_dev_start().
-	        .tx_deferred_start = 0,
+            .tx_deferred_start = 0,
         };
 
         struct rte_mempool *mempool;

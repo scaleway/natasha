@@ -31,25 +31,31 @@ RULE_ACTION_OUT := "out" ["port" ETH_PORT "mac" MAC_ADDRESS "vlan" VLAN_ID | "di
 Configuration file example
 ==========================
 
+# Configuration
+
 port 0 ip 10.2.31.11
 port 1 ip 212.47.255.91
 
+nat file /etc/natasha/nat_rules.conf
+
+# Rules
+
 if ipv4.src_addr in 10.0.0.0/8 and ipv4.dst_addr in 212.0.0.0/8
-    nat ipv4.dst_addr using nat_rules.conf    # rewrite dst addr
-    nat ipv4.src_addr using nat_rules.conf    # rewrite src addr
+    nat rewrite ipv4.dst_addr
+    nat rewrite ipv4.src_addr
     out port 0 mac 7c:0e:ce:25:f3:97 vlan 33
 
 if ipv4.src_addr in 10.0.0.0/8
-    nat ipv4.src_addr using nat_rules.conf
+    nat rewrite ipv4.src_addr
     out port 1 mac 7c:0e:ce:25:f3:97 vlan 24
 
 if ipv4.dst_addr in 212.0.0.0/8
-    nat ipv4.dst_addr using nat_rules.conf    # rewrite dst addr
+    nat rewrite ipv4.dst_addr
     out port 0 mac 7c:0e:ce:25:f3:97 vlan 33
 
 
 nat_rules.conf:
 
-10.0.0.0 -> 212.24.3.7
-10.0.0.1 -> 212.24.3.8
-10.0.0.9 -> 212.24.3.9
+nat 10.0.0.0 -> 212.24.3.7
+nat 10.0.0.1 -> 212.24.3.8
+nat 10.0.0.9 -> 212.24.3.9

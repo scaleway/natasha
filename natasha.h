@@ -65,6 +65,27 @@ struct app_config_rule {
 // Software configuration.
 struct app_config {
     struct app_config_port ports[RTE_MAX_ETHPORTS];
+
+    /*
+     * Contain NAT rules. The rule "10.1.2.3 -> 212.10.11.12" is stored as
+     * two entries, as follow:
+     *
+     * - nat_lookup = table of 256 (2^8) int **
+     * - nat_lookup[10] = table of 256 (2^8) int *
+     * - nat_lookup[10][1] = table of 65536 (2^16) int
+     * - nat_lookup[10][1][2 ~ 3] = 212.10.11.12
+     *
+     * and:
+     *
+     * - nat_lookup = table of 256 (2^8) int **
+     * - nat_lookup[212] = table of 256 (2^8) int *
+     * - nat_lookup[212][10] = table of 65536 (2^16) int
+     * - nat_lookup[212][10][11 ~ 12] = 10.1.2.3
+     *
+     * Note: 2 ~ 3 and 11 ~ 3 represent the last 16 bits of the IP address.
+     */
+    uint32_t ***nat_lookup;
+
     struct app_config_rule rules[64]; // max 64 rules
 };
 

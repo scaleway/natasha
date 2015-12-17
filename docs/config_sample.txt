@@ -1,0 +1,35 @@
+Configuration file example
+==========================
+
+/etc/natasha_config.conf:
+
+    config {
+        port 0 ip 10.2.31.11;
+        port 1 ip 212.47.255.91;
+
+        #include /etc/nat_rules.conf
+    }
+
+    rules {
+        if ipv4.src_addr in 10.0.0.0/8 and ipv4.dst_addr in 212.0.0.0/8 {
+            nat rewrite ipv4.dst_addr;
+            nat rewrite ipv4.src_addr;
+            out port 0 mac 7c:0e:ce:25:f3:97 vlan 33;
+        }
+
+        if ipv4.src_addr in 10.0.0.0/8 {
+            nat rewrite ipv4.src_addr;
+            out port 1 mac 7c:0e:ce:25:f3:97 vlan 24;
+        }
+
+        if ipv4.dst_addr in 212.0.0.0/8 {
+            nat rewrite ipv4.dst_addr
+            out port 0 mac 7c:0e:ce:25:f3:97;
+        }
+    }
+
+/etc/nat_rules.conf:
+
+    nat rule 10.0.0.0 212.24.3.7
+    nat rule 10.0.0.1 212.24.3.8
+    nat rule 10.0.0.9 212.24.3.9

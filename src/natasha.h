@@ -59,7 +59,7 @@ struct app_config_rule_action {
 // Execute actions if only_if returns true.
 struct app_config_rule {
     struct app_config_rule_cond only_if;
-    struct app_config_rule_action actions[16]; // max 16 actions per rule
+    struct app_config_rule_action actions[32]; // max 32 actions per rule
 };
 
 // Software configuration.
@@ -136,12 +136,6 @@ uint16_t tx_flush(uint8_t port, struct tx_queue *queue);
 
 int arp_handle(struct rte_mbuf *pkt, uint8_t port, struct core *core);
 int ipv4_handle(struct rte_mbuf *pkt, uint8_t port, struct core *core);
-
-
-// Rule actions
-RULE_ACTION action_print(struct rte_mbuf *pkt, uint8_t port, struct core *core,
-                         void *data);
-
 
 /*
  * Utility macros.

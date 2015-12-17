@@ -1,3 +1,7 @@
+#include <errno.h>
+#include <string.h>
+#include <unistd.h>
+
 #include <rte_ip.h>
 
 #include "natasha.h"
@@ -5,40 +9,28 @@
 
 #include "action_nat.h"
 #include "action_out.h"
-
 #include "cond_network.h"
+#include "config.h"
 
+#include "parseconfig.tab.h"
+#include "parseconfig.yy.h"
 
-static struct ipv4_network int_pkt = {
-    .ip=IPv4(10, 0, 0, 0),
-    .mask=8
-};
-
-static struct ipv4_network ext_pkt = {
-    .ip=IPv4(212, 47, 0, 0),
-    .mask=16
-};
-
-static struct out_packet out_port_0 = {
-    .port=0,
-    .vlan=-1,
-};
-
-static struct out_packet out_port_1 = {
-    .port=1,
-    .vlan=-1,
-};
-
-
-nat_rewrite_field_t REWRITE_SRC = IPV4_SRC_ADDR;
-nat_rewrite_field_t REWRITE_DST = IPV4_DST_ADDR;
 
 /*
- * To prevent each core from disploying the new configuration, use a global
+ * To prevent each core from displaying the new configuration, use a global
  * flag. There is no locking mechanism on purpose. A race condition could
- * occur, leading to the configuration being displayed by several cores.
+ * occur, leading to the configuration being displayed by 0 or by several
+ * cores.
  */
 static int verbose = 0;
+
+void
+yyerror(yyscan_t scanner, struct app_config *config, struct config_ctx *ctx,
+        const char *str)
+{
+    RTE_LOG(EMERG, APP, "Parsing error on line %i: %s\n",
+            yyget_lineno(scanner), str);
+}
 
 /*
  * Load or reload configuration. If a configuration is already loaded,
@@ -47,46 +39,65 @@ static int verbose = 0;
 int
 app_config_reload(struct app_config *config, int argc, char **argv)
 {
-    int v = 0;
+    int i;
+    char *config_file;
+    FILE *handle;
+    yyscan_t scanner;
+    int ret;
+    struct config_ctx config_ctx;
+
+    // Initialize an empty parsing context
+    memset(&config_ctx, 0, sizeof(config_ctx));
 
     if (++verbose == 1) {
-        v = 1;
+        config_ctx.verbose = 1;
     }
 
-    config->ports[0].ip = IPv4(10, 2, 31, 11);
-    config->ports[1].ip = IPv4(212, 47, 255, 91);
+    config_file = "/etc/natasha.conf";
 
-    if (nat_reload(&config->nat_lookup, "/tmp/nat_rules.conf") < 0) {
+    // Parse argv. Can't use getopt, since option parsing needs to be
+    // reentrant.
+    for (i = 1; i < argc; ++i) {
+
+        if (strcmp(argv[i], "-f") == 0) {
+            if (i == argc - 1) {
+                RTE_LOG(EMERG, APP, "Filename required for -f\n");
+                goto err;
+            }
+            config_file = argv[i + 1];
+            ++i;
+            continue ;
+        } else {
+            RTE_LOG(EMERG, APP, "Unknown option: %s\n", argv[i]);
+            goto err;
+        }
+    }
+
+    handle = fopen(config_file, "r");
+    if (handle == NULL) {
+        RTE_LOG(EMERG, APP, "Fail to load %s: %s\n",
+                config_file, strerror(errno));
         goto err;
-        return -1;
     }
 
-    // 7c:0e:ce:25:f3:97
-    out_port_0.next_hop.addr_bytes[0] = 0x7c;
-    out_port_0.next_hop.addr_bytes[1] = 0x0e;
-    out_port_0.next_hop.addr_bytes[2] = 0xce;
-    out_port_0.next_hop.addr_bytes[3] = 0x25;
-    out_port_0.next_hop.addr_bytes[4] = 0xf3;
-    out_port_0.next_hop.addr_bytes[5] = 0x97;
-    out_port_1.next_hop = out_port_0.next_hop;
+    // Remove NAT rules from lookup table. New rules are added during
+    // configuration parsing.
+    nat_reset_lookup_table(config->nat_lookup);
 
-    if (v) {
+    // Parse the configuration file
+    yylex_init(&scanner);
+    yyset_in(handle, scanner);
+    ret = yyparse(scanner, config, &config_ctx);
+    yylex_destroy(scanner);
+
+    if (ret != 0) {
+        goto err;
+    }
+
+    // Display NAT rules
+    if (config_ctx.verbose) {
         nat_dump_rules(config->nat_lookup);
     }
-
-    config->rules[0].only_if.f = cond_ipv4_src_in_network;
-    config->rules[0].only_if.params = &int_pkt;
-    config->rules[0].actions[0].f = action_nat_rewrite;
-    config->rules[0].actions[0].params = &REWRITE_SRC;
-    config->rules[0].actions[1].f = action_out;
-    config->rules[0].actions[1].params = &out_port_1;
-
-    config->rules[1].only_if.f = cond_ipv4_dst_in_network;
-    config->rules[1].only_if.params = &ext_pkt;
-    config->rules[1].actions[0].f = action_nat_rewrite;
-    config->rules[1].actions[0].params = &REWRITE_DST;
-    config->rules[1].actions[1].f = action_out;
-    config->rules[1].actions[1].params = &out_port_0;
 
     --verbose;
     return 0;

@@ -63,7 +63,7 @@ lookup_and_rewrite(struct rte_mbuf *pkt, uint32_t ***lookup_table, uint32_t ip,
 RULE_ACTION
 action_nat_rewrite(struct rte_mbuf *pkt, uint8_t port, struct core *core, void *data)
 {
-    nat_rewrite_field_t field_to_rewrite = *(nat_rewrite_field_t *)data;
+    int field_to_rewrite = *(int *)data;
     struct ipv4_hdr *ipv4_hdr = ipv4_header(pkt);
 
     if (field_to_rewrite == IPV4_SRC_ADDR) {
@@ -84,7 +84,7 @@ action_nat_rewrite(struct rte_mbuf *pkt, uint8_t port, struct core *core, void *
 /*
  * Set all the IP addresses stored in the NAT lookup table t to -1.
  */
-static void
+void
 nat_reset_lookup_table(uint32_t ***t)
 {
     int i, j;
@@ -136,61 +136,24 @@ add_rule_to_table(uint32_t ***t, uint32_t key, uint32_t value)
 }
 
 /*
- * Feed the nat_lookup tree with the rules in filename.
- *
- * XXX:
- * - Remove the ugly use of getline
- * - Log parsing error instead of silently ignoring
+ * Store NAT rules in nat_lookup.
+ * @return
+ *   - -1 on failure
  */
 int
-nat_reload(uint32_t ****nat_lookup, const char *filename)
+add_rules_to_table(uint32_t ****nat_lookup, uint32_t int_ip, uint32_t ext_ip)
 {
-    FILE *f;
-    size_t n;
-    char *line;
-
-    nat_reset_lookup_table(*nat_lookup);
-    if ((f = fopen(filename, "r")) == NULL) {
+    *nat_lookup = add_rule_to_table(*nat_lookup, int_ip, ext_ip);
+    if (nat_lookup == NULL) {
         return -1;
     }
 
-    line = NULL;
-    while (getline(&line, &n, f) != -1) {
-        int ret;
-        uint32_t s[4];
-        uint32_t d[4];
-        uint32_t src;
-        uint32_t dst;
-
-        ret = sscanf(line, "nat %3u.%3u.%3u.%3u -> %3u.%3u.%3u.%3u\n",
-                     &s[0], &s[1], &s[2], &s[3],
-                     &d[0], &d[1], &d[2], &d[3]);
-        if (ret != 8) {
-            continue ;
-        }
-
-        src = IPv4(s[0], s[1], s[2], s[3]);
-        dst = IPv4(d[0], d[1], d[2], d[3]);
-
-        *nat_lookup = add_rule_to_table(*nat_lookup, src, dst);
-        if (nat_lookup == NULL) {
-            goto err;
-        }
-
-        *nat_lookup = add_rule_to_table(*nat_lookup, dst, src);
-        if (*nat_lookup == NULL) {
-            goto err;
-        }
+    *nat_lookup = add_rule_to_table(*nat_lookup, ext_ip, int_ip);
+    if (nat_lookup == NULL) {
+        return -1;
     }
 
-    free(line);
-    fclose(f);
     return 0;
-
-err:
-    free(line);
-    fclose(f);
-    return -1;
 }
 
 /*

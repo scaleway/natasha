@@ -5,23 +5,7 @@ endif
 # Default target, can be overriden by command line or environment
 RTE_TARGET ?= x86_64-native-linuxapp-gcc
 
-include $(RTE_SDK)/mk/rte.vars.mk
+RTE_SRCDIR=$(abspath src)
+RTE_OUTPUT=$(abspath build)
 
-APP = nat
-
-SRCS-y :=           \
-    action_out.c    \
-    action_log.c    \
-    action_nat.c    \
-    arp.c           \
-    cond_network.c  \
-    config.c        \
-    core.c          \
-    ipv4.c          \
-    pkt.c           \
-
-CFLAGS += -O3 -g
-CFLAGS += -Wall
-# CFLAGS += $(WERROR_FLAGS)
-
-include $(RTE_SDK)/mk/rte.extapp.mk
+include src/Makefile

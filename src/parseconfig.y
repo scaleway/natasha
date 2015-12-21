@@ -55,6 +55,14 @@
 
 /* Declare yyerror prototype, of config.c */
 void yyerror(yyscan_t scanner, struct app_config *config, struct config_ctx *ctx, const char *str);
+
+#define CHECK_PTR(ptr) do {                                             \
+    if ((ptr) == NULL) {                                                \
+        yyerror(scanner, config, ctx, "Unable to allocate memory\n");   \
+        YYERROR;                                                        \
+    }                                                                   \
+} while (0);
+
 %}
 
 %%
@@ -114,6 +122,7 @@ rules_cond:
         struct ipv4_network *param;
 
         param = rte_malloc(NULL, sizeof(*param), 0);
+        CHECK_PTR(param);
         *param = $network;
 
         if ($field == IPV4_SRC_ADDR) {
@@ -155,6 +164,7 @@ rules_action_out:
         struct out_packet *out;
 
         out = rte_malloc(NULL, sizeof(*out), 0);
+        CHECK_PTR(out);
         out->port = $port;
         out->vlan = -1;
         ether_addr_copy(&$mac, &out->next_hop);

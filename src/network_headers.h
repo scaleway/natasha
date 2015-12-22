@@ -7,6 +7,8 @@
 #include <rte_arp.h>
 #include <rte_icmp.h>
 #include <rte_ip.h>
+#include <rte_tcp.h>
+#include <rte_udp.h>
 
 
 static inline struct ether_hdr *
@@ -37,7 +39,10 @@ eth_header(struct rte_mbuf *pkt)
 
 L2_HEADER(arp, struct arp_hdr);
 L2_HEADER(ipv4, struct ipv4_hdr);
+
 L3_HEADER(icmp, struct icmp_hdr);
+L3_HEADER(tcp, struct tcp_hdr);
+L3_HEADER(udp, struct udp_hdr);
 
 #undef L2_HEADER
 #undef L3_HEADER

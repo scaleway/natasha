@@ -61,7 +61,24 @@ void yyerror(yyscan_t scanner, struct app_config *config, struct config_ctx *ctx
         yyerror(scanner, config, ctx, "Unable to allocate memory\n");   \
         YYERROR;                                                        \
     }                                                                   \
-} while (0);
+} while (0)
+
+// Ensure parsing context is valid, and raise an error if we try to parse more
+// rules or actions than we can store.
+#define CHECK_CTX(ctx) do {                                                                                     \
+    if (ctx->current_rule >=                                                                                    \
+            sizeof(config->rules) / sizeof(*config->rules)) {                                                   \
+                                                                                                                \
+        yyerror(scanner, config, ctx, "Too much rules in config file!");                                        \
+        YYERROR;                                                                                                \
+    }                                                                                                           \
+    if (ctx->current_action >=                                                                                  \
+        sizeof(config->rules[ctx->current_rule].actions) / sizeof(*config->rules[ctx->current_rule].actions)) { \
+                                                                                                                \
+        yyerror(scanner, config, ctx, "Too much actions in config file!");                                      \
+        YYERROR;                                                                                                \
+    }                                                                                                           \
+} while (0)
 
 %}
 
@@ -121,6 +138,8 @@ rules_cond:
     {
         struct ipv4_network *param;
 
+        CHECK_CTX(ctx);
+
         param = rte_malloc(NULL, sizeof(*param), 0);
         CHECK_PTR(param);
         *param = $network;
@@ -148,6 +167,8 @@ rules_action:
 rules_action_nat:
     TOK_NAT_REWRITE NAT_REWRITE_FIELD[field] ';'
     {
+        CHECK_CTX(ctx);
+
         config->rules[ctx->current_rule].actions[ctx->current_action].f = action_nat_rewrite;
 
         if ($field == IPV4_SRC_ADDR) {
@@ -163,6 +184,8 @@ rules_action_out:
     {
         struct out_packet *out;
 
+        CHECK_CTX(ctx);
+
         out = rte_malloc(NULL, sizeof(*out), 0);
         CHECK_PTR(out);
         out->port = $port;
@@ -176,6 +199,7 @@ rules_action_out:
 rules_action_print:
     TOK_PRINT ';'
     {
+        CHECK_CTX(ctx);
         config->rules[ctx->current_rule].actions[ctx->current_action].f = action_print;
     }
 ;

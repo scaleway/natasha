@@ -168,6 +168,8 @@ rules_action_out:
         out->port = $port;
         out->vlan = -1;
         ether_addr_copy(&$mac, &out->next_hop);
+        config->rules[ctx->current_rule].actions[ctx->current_action].f = action_out;
+        config->rules[ctx->current_rule].actions[ctx->current_action].params = out;
     }
 ;
 

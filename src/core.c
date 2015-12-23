@@ -126,33 +126,6 @@ main_loop(void *pcore)
 }
 
 /*
- * Get or create a mempool.
- */
-static struct rte_mempool *
-get_or_create_mempool(const char *name,
-                      unsigned n, unsigned elt_size,
-                      unsigned cache_size, unsigned private_data_size,
-                      rte_mempool_ctor_t *mp_init, void *mp_init_arg,
-                      rte_mempool_obj_ctor_t *obj_init, void *obj_init_arg,
-                      int socket_id, unsigned flags)
-{
-    struct rte_mempool *ret;
-
-    ret = rte_mempool_lookup(name);
-    if (ret) {
-        return ret;
-    }
-    RTE_LOG(DEBUG, APP, "Creating mempool `%s'\n", name);
-    return rte_mempool_create(
-        name, n, elt_size,
-        cache_size, private_data_size,
-        mp_init, mp_init_arg,
-        obj_init, obj_init_arg,
-        socket_id, flags
-    );
-}
-
-/*
  * Initialize network port, and create a RX and a TX queue for each logical
  * port activated – except the master core.
  */
@@ -239,10 +212,13 @@ port_init(uint8_t port, struct core *cores)
         char mempool_name[RTE_MEMPOOL_NAMESIZE];
         int socket;
 
-        socket = rte_lcore_to_socket_id(core);
         snprintf(mempool_name, sizeof(mempool_name),
-                 "mempool_port_%d_socket_%d", port, socket);
-        mempool = get_or_create_mempool(
+                 "core_%d_port_%d", core, port);
+
+        // NUMA socket of this processor
+        socket = rte_lcore_to_socket_id(core);
+
+        mempool = rte_mempool_create(
             mempool_name,
             /* n, number of elements in the pool – optimum size is 2^q-1 */
             1023,

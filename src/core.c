@@ -109,8 +109,9 @@ main_loop(void *pcore)
 
         // We need to flush if the last flush occured more than drain_tsc ago.
         need_flush = (cur_tsc - prev_tsc > drain_tsc) ? 1 : 0;
-        if (need_flush)
+        if (need_flush) {
             prev_tsc = cur_tsc;
+        }
 
         for (port = 0; port < eth_dev_count; ++port) {
             handle_port(port, core);

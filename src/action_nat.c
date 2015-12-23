@@ -185,7 +185,7 @@ nat_dump_rules(uint32_t ***nat_lookup)
 
                 ++n;
 
-                printf(IPv4_FMT " -> " IPv4_FMT "\n",
+                printf("NAT rule> " IPv4_FMT " -> " IPv4_FMT "\n",
                     IPv4_FMTARGS(IPv4(i, j, (k >> 8) & 0xff, k & 0xff)),
                     IPv4_FMTARGS(nat_lookup[i][j][k]));
             }

@@ -1,3 +1,5 @@
+#include <signal.h>
+
 #include <rte_common.h>
 #include <rte_cycles.h>
 #include <rte_eal.h>
@@ -71,8 +73,12 @@ reload_conf(struct core *core)
     int ret;
 
     ret = app_config_reload(&core->app_config, core->app_argc, core->app_argv);
-    if (ret >= 0) {
+    if (ret < 0) {
+        RTE_LOG(CRIT, APP, "Core %i: unable to load configuration\n",
+                core->id);
+    } else {
         core->need_reload_conf = 0;
+        RTE_LOG(INFO, APP, "Core %i: configuration reloaded!\n", core->id);
     }
     return ret;
 }
@@ -100,9 +106,6 @@ main_loop(void *pcore)
 
         if (core->need_reload_conf) {
             if (reload_conf(core) < 0) {
-                RTE_LOG(CRIT, APP,
-                    "Unable to load app configuration for core %i, stop "
-                    "running\n", core->id);
                 return -1;
             }
         }
@@ -284,6 +287,22 @@ port_init(uint8_t port, struct core *cores)
     return 0;
 }
 
+// Needs to be global since accessed from signal handler. Initialized to 0.
+static struct core __cores[RTE_MAX_LCORE] = {};
+
+/*
+ * Signal handler for SIGUSR2 to reload configuration.
+ */
+void sig_reload_conf(int sig)
+{
+    unsigned int i;
+    struct core *cores = __cores;
+
+    RTE_LCORE_FOREACH_SLAVE(i) {
+        cores[i].need_reload_conf = 1;
+    }
+}
+
 /*
  * Setup ethernet devices and run workers.
  */
@@ -296,7 +315,7 @@ run_workers(int argc, char **argv)
     uint8_t eth_dev_count;
     unsigned ncores;
     unsigned int core;
-    struct core cores[RTE_MAX_LCORE] = {};
+    struct core *cores = __cores;
 
     eth_dev_count = rte_eth_dev_count();
     if (eth_dev_count == 0) {
@@ -347,6 +366,8 @@ main(int argc, char **argv)
     int ret;
     unsigned int core;
     unsigned int tmp;
+
+    signal(SIGUSR2, sig_reload_conf);
 
     ret = rte_eal_init(argc, argv);
     if (ret < 0) {

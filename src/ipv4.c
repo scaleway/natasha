@@ -103,45 +103,80 @@ icmp_answer(struct rte_mbuf *pkt, uint8_t port, struct core *core)
     return -1;
 }
 
+#define X(cond) do {    \
+    if ((cond) < 0) {   \
+        return -1;      \
+    }                   \
+} while (0)
+
 static int
-process_rules(struct rte_mbuf *pkt, uint8_t port, struct core *core)
+process_rules(struct app_config_node *node, struct rte_mbuf *pkt, uint8_t port,
+              struct core *core)
 {
-    const struct app_config *cfg = &core->app_config;
-    size_t i;
-    size_t j;
     int ret;
 
-    // for each rule
-    for (i = 0;
-         i < sizeof(cfg->rules) / sizeof(*cfg->rules)
-            && cfg->rules[i].actions[0].f;
-         ++i
-    ) {
-
-        const struct app_config_rule *rule = &cfg->rules[i];
-
-        // if we need to execute this rule, execute the actions
-        if (rule->only_if.f == NULL ||
-            rule->only_if.f(pkt, port, core, rule->only_if.params)) {
-
-            for (j = 0;
-                 j < sizeof(rule->actions) / sizeof(*rule->actions)
-                    && rule->actions[j].f;
-                 ++j
-            ) {
-                ret = rule->actions[j].f(pkt, port, core,
-                                         rule->actions[j].params);
-
-                // stop processing rules
-                if (ret == ACTION_BREAK) {
-                    return 0;
-                }
-                // else, ret == ACTION_NEXT, process the next rule.
-            }
-        }
+    if (!node) {
+        return 0;
     }
-    return -1;
+
+    switch (node->type) {
+
+    // Execute node's action.
+    case ACTION:
+        return node->action(pkt, port, core, node->data);
+
+    // Execute left and right parts.
+    case SEQ:
+        X(process_rules(node->left, pkt, port, core));
+        X(process_rules(node->right, pkt, port, core));
+        return 0;
+
+    // The left part of a IF node is a COND node, the right part is the else
+    // clause. Only execute the else clause if the COND is false.
+    case IF:
+        X(ret = process_rules(node->left, pkt, port, core));
+        if (ret == 0) {
+            X(process_rules(node->right, pkt, port, core));
+        }
+        return 0;
+
+    // The left part of a COND node is an ACTION node where
+    // node->left->action() returns a boolean. The right part is the condition
+    // body, that needs to be executed if the boolean is true.
+    case COND:
+        X(ret = process_rules(node->left, pkt, port, core));
+        if (ret == 0) {
+            return 0;
+        }
+        X(process_rules(node->right, pkt, port, core));
+        return 1;
+
+    // The left and the right part of a AND nodes are ACTION nodes where
+    // node->{{side}}->action() returns a boolean. Return true if both
+    // functions return true.
+    case AND:
+        X(ret = process_rules(node->left, pkt, port, core));
+        if (!ret)
+            return 0;
+        X(ret = process_rules(node->right, pkt, port, core));
+        return ret;
+
+    // Almost like the AND node.
+    case OR:
+        X(ret = process_rules(node->left, pkt, port, core));
+        if (ret)
+            return 1;
+        X(ret = process_rules(node->right, pkt, port, core));
+        return ret;
+
+    default:
+        break ;
+    }
+
+    return 0;
 }
+
+#undef X
 
 /*
  * Handle the ipv4 pkt:
@@ -168,5 +203,11 @@ ipv4_handle(struct rte_mbuf *pkt, uint8_t port, struct core *core)
         }
     }
 
-    return process_rules(pkt, port, core);
+    // No rules for this packet, free it
+    if (core->app_config.rules == NULL) {
+        return -1;
+    }
+
+    ret = process_rules(core->app_config.rules, pkt, port, core);
+    return 0;
 }

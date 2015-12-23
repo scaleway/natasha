@@ -5,7 +5,7 @@
 
 #include "natasha.h"
 
-RULE_ACTION action_print(struct rte_mbuf *pkt, uint8_t port, struct core *core,
-                         void *data);
+int action_print(struct rte_mbuf *pkt, uint8_t port, struct core *core,
+                 void *data);
 
 #endif

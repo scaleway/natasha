@@ -41,25 +41,23 @@ struct app_config_rule_cond {
     void *params;
 };
 
-// Define what to do when an action is processed.
-typedef enum {
-    ACTION_NEXT,
-    ACTION_BREAK,
-} RULE_ACTION;
+struct app_config_node {
+    struct app_config_node *left;
+    struct app_config_node *right;
 
-// An action to transform and/or send a packet.
-struct app_config_rule_action {
-    RULE_ACTION (*f)(struct rte_mbuf *pkt,
-                     uint8_t port,
-                     struct core *core,
-                     void *data);
-    void *params;
-};
+    enum {
+        NOOP, // Unused
+        ACTION, // Execute the action
+        SEQ, // Execute both left and right
+        IF, // Execute right if left is false
+        COND, // Execute right if left is true
+        AND, // True if left and right are true
+        OR, // True if left or right is true
+    } type;
 
-// Execute actions if only_if returns true.
-struct app_config_rule {
-    struct app_config_rule_cond only_if;
-    struct app_config_rule_action actions[32]; // max 32 actions per rule
+    int (*action)(struct rte_mbuf *pkt, uint8_t port, struct core *core,
+                  void *data);
+    void *data;
 };
 
 // Software configuration.
@@ -86,7 +84,7 @@ struct app_config {
      */
     uint32_t ***nat_lookup;
 
-    struct app_config_rule rules[64]; // max 64 rules
+    struct app_config_node *rules;
 };
 
 

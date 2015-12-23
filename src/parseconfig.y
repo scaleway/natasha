@@ -29,6 +29,9 @@
 %token TOK_NAT_RULE
 %token TOK_NAT_REWRITE
 %token TOK_IF
+%token TOK_ELSE
+%token TOK_AND
+%token TOK_OR
 %token TOK_IN
 %token TOK_OUT
 %token TOK_MAC
@@ -41,6 +44,7 @@
     uint32_t ipv4_address;
     struct ether_addr mac;
     struct ipv4_network ipv4_network;
+    struct app_config_node *config_node;
 }
 
 /* Semantic values */
@@ -49,6 +53,19 @@
 %token <ipv4_network> IPV4_NETWORK
 %token <number> NAT_REWRITE_FIELD
 %token <mac> MAC_ADDRESS
+
+/* Rules types */
+%type<config_node> rules_content
+%type<config_node> rules_stmt
+%type<config_node> opt_else
+
+%type<config_node> cond
+%type<config_node> cond_in_network
+
+%type<config_node> action
+%type<config_node> action_nat_rewrite
+%type<config_node> action_out
+%type<config_node> action_print
 
 %{
 #include "parseconfig.yy.h"
@@ -63,23 +80,6 @@ void yyerror(yyscan_t scanner, struct app_config *config, struct config_ctx *ctx
     }                                                                   \
 } while (0)
 
-// Ensure parsing context is valid, and raise an error if we try to parse more
-// rules or actions than we can store.
-#define CHECK_CTX(ctx) do {                                                                                     \
-    if (ctx->current_rule >=                                                                                    \
-            sizeof(config->rules) / sizeof(*config->rules)) {                                                   \
-                                                                                                                \
-        yyerror(scanner, config, ctx, "Too much rules in config file!");                                        \
-        YYERROR;                                                                                                \
-    }                                                                                                           \
-    if (ctx->current_action >=                                                                                  \
-        sizeof(config->rules[ctx->current_rule].actions) / sizeof(*config->rules[ctx->current_rule].actions)) { \
-                                                                                                                \
-        yyerror(scanner, config, ctx, "Too much actions in config file!");                                      \
-        YYERROR;                                                                                                \
-    }                                                                                                           \
-} while (0)
-
 %}
 
 %%
@@ -90,7 +90,9 @@ config_file:
     | config_file rules_section
 ;
 
-/* config section */
+/*
+ * CONFIG SECTION
+ */
 config_section:
     CONFIG_SECTION '{' config_lines '}'
 ;
@@ -122,84 +124,190 @@ config_nat_rule:
     }
 ;
 
-/* rules section */
+
+/*
+ * RULES SECTION
+ */
 rules_section:
-    RULES_SECTION '{' rules_line '}'
-;
-
-rules_line:
-    /* empty */
-    | rules_line rules_cond    { ctx->current_action = 0; ctx->current_rule++; }
-    | rules_line rules_action  { ctx->current_action = 0; ctx->current_rule++; }
-;
-
-rules_cond:
-    TOK_IF NAT_REWRITE_FIELD[field] TOK_IN IPV4_NETWORK[network] '{' rules_actions '}'
-    {
-        struct ipv4_network *param;
-
-        CHECK_CTX(ctx);
-
-        param = rte_malloc(NULL, sizeof(*param), 0);
-        CHECK_PTR(param);
-        *param = $network;
-
-        if ($field == IPV4_SRC_ADDR) {
-            config->rules[ctx->current_rule].only_if.f = cond_ipv4_src_in_network;
-        } else {
-            config->rules[ctx->current_rule].only_if.f = cond_ipv4_dst_in_network;
-        }
-        config->rules[ctx->current_rule].only_if.params = param;
+    RULES_SECTION '{' rules_content[root] '}' {
+        config->rules = $root;
     }
 ;
 
-rules_actions:
-    /* empty */
-    | rules_actions rules_action
-;
+rules_content:
+    /* empty */ { $$ = NULL; }
+    | rules_content[prev] rules_stmt[new] {
 
-rules_action:
-    rules_action_nat     { ctx->current_action++; }
-    | rules_action_out   { ctx->current_action++; }
-    | rules_action_print { ctx->current_action++; }
-;
+        // Do not create a sequence node if this is the first action
+        if ($prev == NULL) {
+            $$ = $new;
+        }
+        // Do not create a sequence node if $new is an empty statement
+        else if ($new == NULL) {
+            $$ = $prev;
+        }
+        else {
+            struct app_config_node *node;
 
-rules_action_nat:
-    TOK_NAT_REWRITE NAT_REWRITE_FIELD[field] ';'
-    {
-        CHECK_CTX(ctx);
+            node = rte_zmalloc(NULL, sizeof(*node), 0);
+            CHECK_PTR(node);
 
-        config->rules[ctx->current_rule].actions[ctx->current_action].f = action_nat_rewrite;
+            node->type = SEQ;
+            node->left = $prev;
+            node->right = $new;
 
-        if ($field == IPV4_SRC_ADDR) {
-            config->rules[ctx->current_rule].actions[ctx->current_action].params = (void *)&IPV4_SRC_ADDR;
-        } else {
-            config->rules[ctx->current_rule].actions[ctx->current_action].params = (void *)&IPV4_DST_ADDR;
+            $$ = node;
         }
     }
 ;
 
-rules_action_out:
-    TOK_OUT TOK_PORT NUMBER[port] TOK_MAC MAC_ADDRESS[mac] ';'
-    {
-        struct out_packet *out;
+rules_stmt:
+    ';' { $$ = NULL; }
+    | TOK_IF '(' cond[what] ')' '{' rules_content[body] '}' opt_else[else] {
+        struct app_config_node *if_node;
+        struct app_config_node *cond_node;
 
-        CHECK_CTX(ctx);
+        if_node = rte_zmalloc(NULL, sizeof(*if_node), 0);
+        CHECK_PTR(if_node);
 
-        out = rte_malloc(NULL, sizeof(*out), 0);
-        CHECK_PTR(out);
-        out->port = $port;
-        out->vlan = -1;
-        ether_addr_copy(&$mac, &out->next_hop);
-        config->rules[ctx->current_rule].actions[ctx->current_action].f = action_out;
-        config->rules[ctx->current_rule].actions[ctx->current_action].params = out;
+        cond_node = rte_zmalloc(NULL, sizeof(*cond_node), 0);
+        CHECK_PTR(cond_node);
+
+        if_node->type = IF;
+        if_node->left = cond_node;
+        if_node->right = $else;
+
+        cond_node->type = COND;
+        cond_node->left = $what;
+        cond_node->right = $body;
+
+        $$ = if_node;
+    }
+    | action
+;
+
+opt_else:
+    /* empty */                            { $$ = NULL; }
+    | TOK_ELSE '{' rules_content[body] '}' { $$ = $body; }
+;
+
+cond:
+    cond[lhs] TOK_AND cond[rhs] {
+        struct app_config_node *node;
+
+        node = rte_zmalloc(NULL, sizeof(*node), 0);
+        CHECK_PTR(node);
+
+        node->type = AND;
+        node->left = $lhs;
+        node->right = $rhs;
+
+        $$ = node;
+    }
+    | cond[lhs] TOK_OR cond[rhs] {
+        struct app_config_node *node;
+
+        node = rte_zmalloc(NULL, sizeof(*node), 0);
+        CHECK_PTR(node);
+
+        node->type = OR;
+        node->left = $lhs;
+        node->right = $rhs;
+
+        $$ = node;
+    }
+    | cond_in_network
+;
+
+cond_in_network:
+    NAT_REWRITE_FIELD[field] TOK_IN IPV4_NETWORK[network] {
+        struct app_config_node *node;
+        struct ipv4_network *data;
+
+        node = rte_zmalloc(NULL, sizeof(*node), 0);
+        CHECK_PTR(node);
+
+        data = rte_zmalloc(NULL, sizeof(*data), 0);
+        CHECK_PTR(data);
+
+        *data = $network;
+
+        node->type = ACTION;
+
+        if ($field == IPV4_SRC_ADDR) {
+            node->action = cond_ipv4_src_in_network;
+        } else {
+            node->action = cond_ipv4_dst_in_network;
+        }
+        node->data = data;
+
+        $$ = node;
     }
 ;
 
-rules_action_print:
-    TOK_PRINT ';'
-    {
-        CHECK_CTX(ctx);
-        config->rules[ctx->current_rule].actions[ctx->current_action].f = action_print;
+action:
+    action_nat_rewrite
+    | action_out
+    | action_print
+;
+
+action_nat_rewrite:
+    TOK_NAT_REWRITE NAT_REWRITE_FIELD[field] ';' {
+        struct app_config_node *node;
+        int *data;
+
+        node = rte_zmalloc(NULL, sizeof(*node), 0);
+        CHECK_PTR(node);
+
+        data = rte_zmalloc(NULL, sizeof(*data), 0);
+        CHECK_PTR(data);
+
+        if ($field == IPV4_SRC_ADDR) {
+            *data = IPV4_SRC_ADDR;
+        } else {
+            *data = IPV4_DST_ADDR;
+        }
+
+        node->type = ACTION;
+        node->action = action_nat_rewrite;
+        node->data = data;
+
+        $$ = node;
+    }
+;
+
+action_out:
+    TOK_OUT TOK_PORT NUMBER[port] TOK_MAC MAC_ADDRESS[mac] ';' {
+        struct app_config_node *node;
+        struct out_packet *data;
+
+        node = rte_zmalloc(NULL, sizeof(*node), 0);
+        CHECK_PTR(node);
+
+        data = rte_zmalloc(NULL, sizeof(*data), 0);
+        CHECK_PTR(data);
+
+        data->port = $port;
+        data->next_hop = $mac;
+
+        node->type = ACTION;
+        node->action = action_out;
+        node->data = data;
+
+        $$ = node;
+    }
+;
+
+action_print:
+    TOK_PRINT {
+        struct app_config_node *node;
+
+        node = rte_zmalloc(NULL, sizeof(*node), 0);
+        CHECK_PTR(node);
+
+        node->type = ACTION;
+        node->action = action_print;
+
+        $$ = node;
     }
 ;

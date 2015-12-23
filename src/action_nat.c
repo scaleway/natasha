@@ -45,7 +45,7 @@ nat_lookup_ip(uint32_t ***lookup_table, uint32_t ip, uint32_t *value)
 /*
  * Search ip in lookup_table and rewrite field. If ip is not found, drop pkt.
  */
-static RULE_ACTION
+static int
 lookup_and_rewrite(struct rte_mbuf *pkt, uint32_t ***lookup_table, uint32_t ip,
                    uint32_t *field)
 {
@@ -53,14 +53,14 @@ lookup_and_rewrite(struct rte_mbuf *pkt, uint32_t ***lookup_table, uint32_t ip,
 
     if (nat_lookup_ip(lookup_table, ip, &res) < 0) {
         rte_pktmbuf_free(pkt);
-        return ACTION_BREAK;
+        return -1; // stop processing next rules
     }
 
     *field = rte_cpu_to_be_32(res);
-    return ACTION_NEXT;
+    return 0;
 }
 
-RULE_ACTION
+int
 action_nat_rewrite(struct rte_mbuf *pkt, uint8_t port, struct core *core, void *data)
 {
     int field_to_rewrite = *(int *)data;

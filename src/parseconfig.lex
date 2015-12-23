@@ -86,6 +86,9 @@ MAC_ADDRESS     ([0-9a-z]{2}:){5}[0-9a-z]{2}
 "nat rule"     return TOK_NAT_RULE;
 "nat rewrite"  return TOK_NAT_REWRITE;
 "if"           return TOK_IF;
+"else"         return TOK_ELSE;
+"and"          return TOK_AND;
+"or"           return TOK_OR;
 "in"           return TOK_IN;
 "out"          return TOK_OUT;
 "mac"          return TOK_MAC;

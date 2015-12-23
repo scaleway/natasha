@@ -9,7 +9,7 @@ struct out_packet {
     struct ether_addr next_hop;
 };
 
-RULE_ACTION action_out(struct rte_mbuf *pkt, uint8_t port, struct core *core,
-                       void *data);
+int action_out(struct rte_mbuf *pkt, uint8_t port, struct core *core,
+               void *data);
 
 #endif

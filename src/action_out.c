@@ -6,7 +6,7 @@
 /*
  * Output a IPV4 packet on a TX queue.
  */
-RULE_ACTION
+int
 action_out(struct rte_mbuf *pkt, uint8_t port, struct core *core, void *data)
 {
     struct out_packet *out = data;
@@ -51,5 +51,5 @@ action_out(struct rte_mbuf *pkt, uint8_t port, struct core *core, void *data)
     }
 
     tx_send(pkt, out->port, &core->tx_queues[out->port]);
-    return ACTION_BREAK;
+    return -1; // Stop processing rules
 }

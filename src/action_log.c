@@ -2,7 +2,7 @@
 #include "network_headers.h"
 
 
-RULE_ACTION
+int
 action_print(struct rte_mbuf *pkt, uint8_t port, struct core *core, void *data)
 {
     const struct ipv4_hdr *ipv4_hdr = ipv4_header(pkt);
@@ -13,5 +13,5 @@ action_print(struct rte_mbuf *pkt, uint8_t port, struct core *core, void *data)
             "Port %i: packet on core %i from " IPv4_FMT " to " IPv4_FMT "\n",
             port, core->id, IPv4_FMTARGS(src_addr), IPv4_FMTARGS(dst_addr));
 
-    return ACTION_NEXT;
+    return 0;
 }

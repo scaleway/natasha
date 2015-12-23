@@ -7,9 +7,6 @@ struct config_ctx {
 
     /* Current action being parsed */
     int current_action;
-
-    /* Whether we should be verbose or not */
-    int verbose;
 };
 
 #endif

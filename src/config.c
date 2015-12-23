@@ -16,14 +16,6 @@
 #include "parseconfig.yy.h"
 
 
-/*
- * To prevent each core from displaying the new configuration, use a global
- * flag. There is no locking mechanism on purpose. A race condition could
- * occur, leading to the configuration being displayed by 0 or by several
- * cores.
- */
-static int verbose = 0;
-
 void
 yyerror(yyscan_t scanner, struct app_config *config, struct config_ctx *ctx,
         const char *str)
@@ -37,7 +29,8 @@ yyerror(yyscan_t scanner, struct app_config *config, struct config_ctx *ctx,
  * free it.
  */
 int
-app_config_reload(struct app_config *config, int argc, char **argv)
+app_config_reload(struct app_config *config, int argc, char **argv,
+                  int verbose)
 {
     int i;
     char *config_file;
@@ -48,10 +41,6 @@ app_config_reload(struct app_config *config, int argc, char **argv)
 
     // Initialize an empty parsing context
     memset(&config_ctx, 0, sizeof(config_ctx));
-
-    if (++verbose == 1) {
-        config_ctx.verbose = 1;
-    }
 
     config_file = "/etc/natasha.conf";
 
@@ -95,14 +84,12 @@ app_config_reload(struct app_config *config, int argc, char **argv)
     }
 
     // Display NAT rules
-    if (config_ctx.verbose) {
+    if (verbose) {
         nat_dump_rules(config->nat_lookup);
     }
 
-    --verbose;
     return 0;
 
 err:
-    --verbose;
     return -1;
 }

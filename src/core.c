@@ -71,8 +71,16 @@ int
 reload_conf(struct core *core)
 {
     int ret;
+    int verbose;
 
-    ret = app_config_reload(&core->app_config, core->app_argc, core->app_argv);
+    // Only be verbose for the first slave core, to prevent configuration
+    // logging to be displayed more than once.
+    verbose = (rte_get_next_lcore(-1, 1, 0) == core->id);
+
+    ret = app_config_reload(&core->app_config,
+                            core->app_argc, core->app_argv,
+                            verbose);
+
     if (ret < 0) {
         RTE_LOG(CRIT, APP, "Core %i: unable to load configuration\n",
                 core->id);

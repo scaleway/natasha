@@ -3,6 +3,7 @@
 #include <unistd.h>
 
 #include <rte_ip.h>
+#include <rte_malloc.h>
 
 #include "natasha.h"
 #include "network_headers.h"
@@ -24,6 +25,27 @@ yyerror(yyscan_t scanner, struct app_config *config, struct config_ctx *ctx,
             yyget_lineno(scanner), str);
 }
 
+static struct app_config_node *
+reset_rules(struct app_config_node *root)
+{
+    if (!root) {
+        return NULL;
+    }
+
+    if (root->left) {
+        reset_rules(root->left);
+    }
+
+    if (root->right) {
+        reset_rules(root->right);
+    }
+
+    rte_free(root->data);
+    rte_free(root);
+
+    return NULL;
+}
+
 /*
  * Load or reload configuration. If a configuration is already loaded,
  * free it.
@@ -41,6 +63,7 @@ app_config_reload(struct app_config *config, int argc, char **argv,
 
     // Initialize an empty parsing context
     memset(&config_ctx, 0, sizeof(config_ctx));
+    handle = NULL;
 
     config_file = "/etc/natasha.conf";
 
@@ -73,6 +96,9 @@ app_config_reload(struct app_config *config, int argc, char **argv,
     // configuration parsing.
     nat_reset_lookup_table(config->nat_lookup);
 
+    // Free old configuration
+    config->rules = reset_rules(config->rules);
+
     // Parse the configuration file
     yylex_init(&scanner);
     yyset_in(handle, scanner);
@@ -88,8 +114,12 @@ app_config_reload(struct app_config *config, int argc, char **argv,
         nat_dump_rules(config->nat_lookup);
     }
 
+    fclose(handle);
     return 0;
 
 err:
+    if (handle) {
+        fclose(handle);
+    }
     return -1;
 }

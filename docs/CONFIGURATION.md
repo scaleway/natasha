@@ -63,15 +63,16 @@ Configuration parsing
 
 A configuration file is parsed with [flex](http://flex.sourceforge.net/) and
 [bison](https://www.gnu.org/software/bison/). The [lex
-file](../src/parseconfig.lex) is straightforward: it parses the file and
-generates tokens parsed by bison. The [bison
-file](../src/parseconfig.y) is divided in two parts:
+file](src/parseconfig.lex) is straightforward: it parses the file and generates
+tokens parsed by bison. The [bison file](src/parseconfig.y) is divided in two
+parts:
 
 * the `config` section parsing, which is easy to understand and hack and won't
   be discussed here.
 * the `rules` section parsing, which generates an AST.
 
-The AST is stored in the `app_config_node` structure defined in `natasha.h`:
+The AST is stored in the `app_config_node` structure defined in
+[natasha.h](src/natasha.h):
 
 ```
 struct app_config_node {
@@ -134,12 +135,12 @@ ACTION[action=cond_ipv4_src_in_network, data=struct ipv4_network(192.0.0.0/8)] _
  |__ ACTION[action=action_out, data=struct out_packet(port 0)]
 ```
 
-The bison files generates this structure.
+Rules in [parseconfig.y](src/parseconfig.y) generate this AST.
 
 
 Configuration execution
 -----------------------
 
-Rules are processed recursively by `process_rules()` in
-[ipv4.c](../src/ipv4.c).  At any time, if `node->action` (set for ACTION nodes
-to execute actions and conditions) returns -1, we stop processing the tree.
+Rules are processed recursively by `process_rules()` in [ipv4.c](src/ipv4.c).
+At any time, if `node->action` (set for ACTION nodes to execute actions and
+conditions) returns -1, we stop processing the tree.

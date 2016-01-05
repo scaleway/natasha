@@ -109,6 +109,11 @@ icmp_answer(struct rte_mbuf *pkt, uint8_t port, struct core *core)
     }                   \
 } while (0)
 
+/*
+ * Process the rules AST for pkt.
+ *
+ * See detailed documentation in docs/CONFIGURATION.md.
+ */
 static int
 process_rules(struct app_config_node *node, struct rte_mbuf *pkt, uint8_t port,
               struct core *core)

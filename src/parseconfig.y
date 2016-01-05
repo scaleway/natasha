@@ -1,4 +1,8 @@
 %{
+/*
+ * See docs/CONFIGURATION.md
+ */
+
 #include <stdio.h>
 
 #include <rte_malloc.h>

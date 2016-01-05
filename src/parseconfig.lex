@@ -1,3 +1,7 @@
+/*
+ * See docs/CONFIGURATION.md
+ */
+
 /* Generate a default yywrap function. */
 %option noyywrap
 /* Do not generate warnings because yyunput/input are unused. */

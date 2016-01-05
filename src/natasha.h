@@ -41,6 +41,7 @@ struct app_config_rule_cond {
     void *params;
 };
 
+// See docs/CONFIGURATION.md.
 struct app_config_node {
     struct app_config_node *left;
     struct app_config_node *right;

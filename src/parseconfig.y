@@ -41,6 +41,12 @@
 %token TOK_MAC
 %token TOK_PRINT
 
+/*
+ * Explicit to bison that AND and OR are left-associative, otherwise a
+ * shift/reduce warning is raised.
+ */
+%left TOK_AND TOK_OR
+
 /* Possible data types for semantic values */
 %union {
     int number;

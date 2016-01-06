@@ -24,20 +24,20 @@ And the `rules` section defines how to transform a packet:
 rules {
 
     # Rewrite both source and destination
-    if (ipv4.src_addr in 10.2.0.2/32 and ipv4.dst_addr in 212.47.255.128/32) {
+    if (ipv4.src_addr in 10.0.0.0/8 and ipv4.dst_addr in 212.47.0.0/16) {
         nat rewrite ipv4.src_addr;
         nat rewrite ipv4.dst_addr;
         out port 1 mac 7c:0e:ce:25:f3:97;
     }
 
     # Only rewrite source
-    if (ipv4.src_addr in 10.2.0.2/32) {
+    if (ipv4.src_addr in 10.0.0.0/8) {
         nat rewrite ipv4.src_addr;
         out port 1 mac 7c:0e:ce:25:f3:97;
     }
 
     # Only rewrite destination
-    if (ipv4.dst_addr in 212.47.255.128/32) {
+    if (ipv4.dst_addr in 212.47.0.0/16) {
         nat rewrite ipv4.dst_addr;
         out port 0 mac 7c:0e:ce:25:f3:97;
     }
@@ -99,7 +99,7 @@ There's nothing better than a schema. The following configuration:
 
 ```
 rules {
-    if (ipv4.src_addr in 10.0.0.0/8 and ipv4.dst_addr in 192.0.0.0/8) {
+    if (ipv4.src_addr in 10.0.0.0/8 and ipv4.dst_addr in 212.47.0.0/16) {
        nat rewrite ipv4.src_addr;
        out port 0 mac 7c:0e:ce:25:f3:97;
     } else {
@@ -122,7 +122,7 @@ Is represented as the following AST:
                 /    \______________________________________________________________      |
 ACTION[action=cond_ipv4_src_in_network, data=struct ipv4_network(10.0.0.0/8)]       |     |
                                                                                     |     |
-ACTION[action=cond_ipv4_src_in_network, data=struct ipv4_network(192.0.0.0/8)] _____|     |
+ACTION[action=cond_ipv4_src_in_network, data=struct ipv4_network(212.47.0.0/16)] ___|     |
                                                                                           |
                    _______________________________________________________________________|
                    |

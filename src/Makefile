@@ -20,6 +20,7 @@ SRCS-y :=                           \
     core.c                          \
     ipv4.c                          \
     pkt.c                           \
+    stats.c                         \
 
 
 ifeq ($(NOT_FIRST_CALL),1)

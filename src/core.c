@@ -375,8 +375,6 @@ main(int argc, char **argv)
     unsigned int core;
     unsigned int tmp;
 
-    signal(SIGUSR2, sig_reload_conf);
-
     ret = rte_eal_init(argc, argv);
     if (ret < 0) {
 		rte_exit(EXIT_FAILURE, "Error with EAL initialization\n");
@@ -388,6 +386,9 @@ main(int argc, char **argv)
     if (ret < 0) {
         rte_exit(EXIT_FAILURE, "Unable to launch workers\n");
     }
+
+    signal(SIGUSR1, stats_display);
+    signal(SIGUSR2, sig_reload_conf);
 
     // Check if slaves are still running, and log if they exit.
     tmp = 0;

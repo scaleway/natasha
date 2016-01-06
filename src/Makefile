@@ -1,16 +1,33 @@
 include $(RTE_SDK)/mk/rte.vars.mk
 
+# rte.extapp.mk creates the build directory, sets NOT_FIRST_CALL to 1 and
+# recursively calls our Makefile.
+ifeq ($(NOT_FIRST_CALL),1)
+
 APP = nat
 
 CFLAGS += -O3 -g
 CFLAGS += -Wall
-CFLAGS += -I$(RTE_OUTPUT) # to include parseconfig.yy.h and parseconfig.tab.h
-CFLAGS += -I$(RTE_SRCDIR) # to include files from parseconfig.yy.c and parseconfig.tab.c
+CFLAGS += -I$(RTE_OUTPUT) # to include bison and flex headers
+CFLAGS += -I$(RTE_SRCDIR) # so bison and flex C files can include headers
 # CFLAGS += $(WERROR_FLAGS)
 
+FLEX_INPUT    = $(RTE_SRCDIR)/parseconfig.lex
+FLEX_OUTPUT_H = $(RTE_OUTPUT)/parseconfig.yy.h
+FLEX_OUTPUT_C = $(RTE_OUTPUT)/parseconfig.yy.c
+FLEX_OUTPUT   = $(FLEX_OUTPUT_H) $(FLEX_OUTPUT_C)
+
+BISON_INPUT    = $(RTE_SRCDIR)/parseconfig.y
+BISON_OUTPUT_H = $(RTE_OUTPUT)/parseconfig.tab.h
+BISON_OUTPUT_C = $(RTE_OUTPUT)/parseconfig.tab.c
+BISON_OUTPUT   = $(BISON_OUTPUT_H) $(BISON_OUTPUT_C)
+
+CONFIG_OUTPUT_H = $(FLEX_OUTPUT_H) $(BISON_OUTPUT_H)
+CONFIG_OUTPUT_C = $(FLEX_OUTPUT_C) $(BISON_OUTPUT_C)
+CONFIG_OUTPUT   = $(FLEX_OUTPUT) $(BISON_OUTPUT)
+
 SRCS-y :=                           \
-    $(RTE_OUTPUT)/parseconfig.tab.c \
-    $(RTE_OUTPUT)/parseconfig.yy.c  \
+    $(CONFIG_OUTPUT_C)              \
     action_out.c                    \
     action_log.c                    \
     action_nat.c                    \
@@ -22,16 +39,13 @@ SRCS-y :=                           \
     pkt.c                           \
     stats.c                         \
 
+natasha: $(CONFIG_OUTPUT) all
 
-ifeq ($(NOT_FIRST_CALL),1)
+$(FLEX_OUTPUT): $(FLEX_INPUT)
+	flex -o $(FLEX_OUTPUT_C) --header-file=$(FLEX_OUTPUT_H) $(FLEX_INPUT)
 
-natasha: $(RTE_OUTPUT)/parseconfig.yy.c $(RTE_OUTPUT)/parseconfig.yy.h $(RTE_OUTPUT)/parseconfig.tab.c $(RTE_OUTPUT)/parseconfig.tab.h all
-
-$(RTE_OUTPUT)/parseconfig.yy.c $(RTE_OUTPUT)/parseconfig.yy.h: $(RTE_SRCDIR)/parseconfig.lex
-	flex -o $(RTE_OUTPUT)/parseconfig.yy.c --header-file=$(RTE_OUTPUT)/parseconfig.yy.h $(RTE_SRCDIR)/parseconfig.lex
-
-$(RTE_OUTPUT)/parseconfig.tab.c $(RTE_OUTPUT)/parseconfig.tab.h: $(RTE_SRCDIR)/parseconfig.y
-	bison -d -o $(RTE_OUTPUT)/parseconfig.tab.c $(RTE_SRCDIR)/parseconfig.y
+$(BISON_OUTPUT): $(BISON_INPUT)
+	bison -d -o $(BISON_OUTPUT_C) $(BISON_INPUT)
 
 endif
 

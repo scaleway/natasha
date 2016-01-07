@@ -7,7 +7,7 @@
 cd $(dirname $0)
 
 error() {
-    echo ">>> Fail on test ${f}: ${out} != ${expect}" >&2
+    echo ">>> Fail on test ${f}: $(dirname $0)/${out} != $(dirname $0)/${expect}" >&2
     exit 1
 }
 

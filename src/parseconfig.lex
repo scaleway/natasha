@@ -96,6 +96,7 @@ MAC_ADDRESS     ([0-9a-z]{2}:){5}[0-9a-z]{2}
 "out"          return TOK_OUT;
 "mac"          return TOK_MAC;
 "print"        return TOK_PRINT;
+"drop"         return TOK_DROP;
 
 ipv4\.src_addr  yylval->number = IPV4_SRC_ADDR; return NAT_REWRITE_FIELD;
 ipv4\.dst_addr  yylval->number = IPV4_DST_ADDR; return NAT_REWRITE_FIELD;

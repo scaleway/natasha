@@ -33,6 +33,7 @@ CONFIG_OUTPUT   = $(FLEX_OUTPUT) $(BISON_OUTPUT)
 
 SRCS-y +=                           \
     $(CONFIG_OUTPUT_C)              \
+	action_drop.c                   \
     action_out.c                    \
     action_log.c                    \
     action_nat.c                    \

@@ -8,6 +8,7 @@
 #include <rte_malloc.h>
 
 #include "natasha.h"
+#include "action_drop.h"
 #include "action_log.h"
 #include "action_nat.h"
 #include "action_out.h"
@@ -38,6 +39,7 @@
 %token TOK_OUT
 %token TOK_MAC
 %token TOK_PRINT
+%token TOK_DROP
 
 /*
  * Explicit to bison that AND and OR are left-associative, otherwise a
@@ -74,6 +76,7 @@
 %type<config_node> action_nat_rewrite
 %type<config_node> action_out
 %type<config_node> action_print
+%type<config_node> action_drop
 
 %{
 #include "parseconfig.yy.h"
@@ -262,6 +265,7 @@ action:
     action_nat_rewrite
     | action_out
     | action_print
+    | action_drop
 ;
 
 action_nat_rewrite:
@@ -320,6 +324,20 @@ action_print:
 
         node->type = ACTION;
         node->action = action_print;
+
+        $$ = node;
+    }
+;
+
+action_drop:
+    TOK_DROP {
+        struct app_config_node *node;
+
+        node = rte_zmalloc(NULL, sizeof(*node), 0);
+        CHECK_PTR(node);
+
+        node->type = ACTION;
+        node->action = action_drop;
 
         $$ = node;
     }

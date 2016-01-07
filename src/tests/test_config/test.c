@@ -55,6 +55,10 @@ main(int argc, char **argv)
         exit(1);
     }
 
+    if (app_config.nat_lookup == NULL) {
+        printf("EXPECT: no NAT rules\n");
+    }
+
     // Dump ports
     for (i = 0; i < sizeof(app_config.ports) / sizeof(*app_config.ports); ++i) {
         if (app_config.ports[i].ip) {
@@ -64,6 +68,10 @@ main(int argc, char **argv)
 
     // Dump NAT rules
     nat_dump_rules("EXPECT:", app_config.nat_lookup);
+
+    if (app_config.rules == NULL) {
+        printf("EXPECT: no packet rules\n");
+    }
 
     dump_rules(app_config.rules, 0);
 

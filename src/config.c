@@ -16,13 +16,6 @@
 #include "parseconfig.yy.h"
 
 
-void
-yyerror(yyscan_t scanner, struct app_config *config, const char *str)
-{
-    RTE_LOG(EMERG, APP, "Parsing error on line %i: %s\n",
-            yyget_lineno(scanner), str);
-}
-
 static struct app_config_node *
 reset_rules(struct app_config_node *root)
 {

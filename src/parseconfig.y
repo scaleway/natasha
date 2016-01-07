@@ -78,8 +78,12 @@
 %{
 #include "parseconfig.yy.h"
 
-/* Declare yyerror prototype, of config.c */
-void yyerror(yyscan_t scanner, struct app_config *config, const char *str);
+static void
+yyerror(yyscan_t scanner, struct app_config *config, const char *str)
+{
+    RTE_LOG(EMERG, APP, "Parsing error on line %i: %s\n",
+            yyget_lineno(scanner), str);
+}
 
 #define CHECK_PTR(ptr) do {                                         \
     if ((ptr) == NULL) {                                            \

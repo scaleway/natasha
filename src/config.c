@@ -11,15 +11,13 @@
 #include "action_nat.h"
 #include "action_out.h"
 #include "cond_network.h"
-#include "config.h"
 
 #include "parseconfig.tab.h"
 #include "parseconfig.yy.h"
 
 
 void
-yyerror(yyscan_t scanner, struct app_config *config, struct config_ctx *ctx,
-        const char *str)
+yyerror(yyscan_t scanner, struct app_config *config, const char *str)
 {
     RTE_LOG(EMERG, APP, "Parsing error on line %i: %s\n",
             yyget_lineno(scanner), str);
@@ -59,10 +57,7 @@ app_config_reload(struct app_config *config, int argc, char **argv,
     FILE *handle;
     yyscan_t scanner;
     int ret;
-    struct config_ctx config_ctx;
 
-    // Initialize an empty parsing context
-    memset(&config_ctx, 0, sizeof(config_ctx));
     handle = NULL;
 
     config_file = "/etc/natasha.conf";
@@ -102,7 +97,7 @@ app_config_reload(struct app_config *config, int argc, char **argv,
     // Parse the configuration file
     yylex_init(&scanner);
     yyset_in(handle, scanner);
-    ret = yyparse(scanner, config, &config_ctx);
+    ret = yyparse(scanner, config);
     yylex_destroy(scanner);
 
     if (ret != 0) {

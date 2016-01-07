@@ -12,16 +12,14 @@
 #include "action_nat.h"
 #include "action_out.h"
 #include "cond_network.h"
-#include "config.h"
 %}
 
 /* Make parser reentrant */
 %define api.pure full
 %lex-param   { yyscan_t scanner }
 %parse-param { void *scanner }
-/* Add params "config" and "ctx" to parsing functions */
+/* Add param "config" to parsing functions */
 %parse-param { struct app_config *config }
-%parse-param { struct config_ctx *ctx }
 
 %token OOPS
 
@@ -81,13 +79,13 @@
 #include "parseconfig.yy.h"
 
 /* Declare yyerror prototype, of config.c */
-void yyerror(yyscan_t scanner, struct app_config *config, struct config_ctx *ctx, const char *str);
+void yyerror(yyscan_t scanner, struct app_config *config, const char *str);
 
-#define CHECK_PTR(ptr) do {                                             \
-    if ((ptr) == NULL) {                                                \
-        yyerror(scanner, config, ctx, "Unable to allocate memory\n");   \
-        YYERROR;                                                        \
-    }                                                                   \
+#define CHECK_PTR(ptr) do {                                         \
+    if ((ptr) == NULL) {                                            \
+        yyerror(scanner, config, "Unable to allocate memory\n");    \
+        YYERROR;                                                    \
+    }                                                               \
 } while (0)
 
 %}
@@ -117,7 +115,7 @@ config_port:
     TOK_PORT NUMBER[port] TOK_IP IPV4_ADDRESS[ip] ';'
     {
         if ($port >= RTE_MAX_ETHPORTS) {
-            yyerror(scanner, config, ctx, "Invalid port number");
+            yyerror(scanner, config, "Invalid port number");
             YYERROR;
         }
         config->ports[$port].ip = $ip;
@@ -128,7 +126,7 @@ config_nat_rule:
     TOK_NAT_RULE IPV4_ADDRESS[from] IPV4_ADDRESS[to] ';'
     {
         if (add_rules_to_table(&config->nat_lookup, $from, $to) < 0) {
-            yyerror(scanner, config, ctx, "Unable to add NAT rule");
+            yyerror(scanner, config, "Unable to add NAT rule");
             YYERROR;
         }
     }

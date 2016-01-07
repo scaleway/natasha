@@ -21,7 +21,6 @@
 #include "natasha.h"
 #include "action_nat.h"
 #include "cond_network.h"
-#include "config.h"
 #include "parseconfig.tab.h"
 %}
 

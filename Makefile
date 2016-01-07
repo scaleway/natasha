@@ -27,6 +27,7 @@ test:
 			APP=$$test                                  \
 			RTE_OUTPUT=$(RTE_OUTPUT)/$$test             \
 			UNITTEST=1                                  \
+			build_test                                  \
 	; done
 	# Running tests...
 	@for test in $(TESTS); do                                   \

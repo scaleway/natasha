@@ -369,7 +369,11 @@ run_workers(int argc, char **argv)
 }
 
 int
+#ifndef UNITTEST
 main(int argc, char **argv)
+#else
+natasha(int argc, char **argv)
+#endif
 {
     int ret;
     unsigned int core;

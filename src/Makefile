@@ -4,12 +4,17 @@ include $(RTE_SDK)/mk/rte.vars.mk
 # recursively calls our Makefile.
 ifeq ($(NOT_FIRST_CALL),1)
 
-APP = nat
+APP ?= nat
 
 CFLAGS += -O3 -g
 CFLAGS += -Wall
 CFLAGS += -I$(RTE_OUTPUT) # to include bison and flex headers
 CFLAGS += -I$(RTE_SRCDIR) # so bison and flex C files can include headers
+
+ifdef UNITTEST
+CFLAGS += -DUNITTEST
+endif
+
 # CFLAGS += $(WERROR_FLAGS)
 
 FLEX_INPUT    = $(RTE_SRCDIR)/parseconfig.lex
@@ -26,7 +31,7 @@ CONFIG_OUTPUT_H = $(FLEX_OUTPUT_H) $(BISON_OUTPUT_H)
 CONFIG_OUTPUT_C = $(FLEX_OUTPUT_C) $(BISON_OUTPUT_C)
 CONFIG_OUTPUT   = $(FLEX_OUTPUT) $(BISON_OUTPUT)
 
-SRCS-y :=                           \
+SRCS-y +=                           \
     $(CONFIG_OUTPUT_C)              \
     action_out.c                    \
     action_log.c                    \

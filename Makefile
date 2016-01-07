@@ -23,6 +23,7 @@ test:
 	# Building tests...
 	@for test in $(TESTS); do                                   \
 		$(MAKE) -C . -f $(RTE_SRCDIR)/tests/$$test/Makefile \
+			--no-print-directory                        \
 			APP=$$test                                  \
 			RTE_OUTPUT=$(RTE_OUTPUT)/$$test             \
 			UNITTEST=1                                  \

@@ -5,12 +5,6 @@
 #include "network_headers.h"
 #include "action_nat.h"
 
-/*
- * Size of the first, second and third row of the NAT lookup table.
- */
-static const int lkp_fs = 256; // 2^8
-static const int lkp_ss = 256; // 2^8
-static const int lkp_ts = 65536; // 2^16
 
 /*
  * Search for ip in the NAT lookup table, and store the result in value.
@@ -163,7 +157,7 @@ add_rules_to_table(uint32_t ****nat_lookup, uint32_t int_ip, uint32_t ext_ip)
  *  - Number of rules in nat_lookup.
  */
 int
-nat_dump_rules(uint32_t ***nat_lookup)
+nat_dump_rules(char *prefix, uint32_t ***nat_lookup)
 {
     size_t n;
     int i, j, k;
@@ -185,7 +179,8 @@ nat_dump_rules(uint32_t ***nat_lookup)
 
                 ++n;
 
-                printf("NAT rule> " IPv4_FMT " -> " IPv4_FMT "\n",
+                printf("%s" IPv4_FMT " -> " IPv4_FMT "\n",
+                    prefix ? prefix : "NAT rule> ",
                     IPv4_FMTARGS(IPv4(i, j, (k >> 8) & 0xff, k & 0xff)),
                     IPv4_FMTARGS(nat_lookup[i][j][k]));
             }

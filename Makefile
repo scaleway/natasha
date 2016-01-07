@@ -24,13 +24,13 @@ test:
 	@for test in $(TESTS); do                                   \
 		$(MAKE) -C . -f $(RTE_SRCDIR)/tests/$$test/Makefile \
 			--no-print-directory                        \
-			APP=$$test                                  \
 			RTE_OUTPUT=$(RTE_OUTPUT)/$$test             \
 			UNITTEST=1                                  \
 			build_test                                  \
 	; done
 	# Running tests...
-	@for test in $(TESTS); do                                   \
-		$(RTE_OUTPUT)/$$test/$$test                         \
-		&& echo [OK] $$test || echo [FAIL] $$test           \
+	@for test in $(TESTS); do                            \
+		sudo $(RTE_OUTPUT)/$$test/test               \
+                  && echo "[OK] $$test" ||                   \
+                           echo "[FAIL] $$test (status=$$?)" \
 	; done

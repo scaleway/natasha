@@ -99,7 +99,7 @@ app_config_reload(struct app_config *config, int argc, char **argv,
 
     // Display NAT rules
     if (verbose) {
-        nat_dump_rules(config->nat_lookup);
+        nat_dump_rules(NULL, config->nat_lookup);
     }
 
     fclose(handle);

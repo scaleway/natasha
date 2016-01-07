@@ -62,6 +62,13 @@ struct app_config_node {
 };
 
 // Software configuration.
+/*
+ * Size of the first, second and third row of the NAT lookup table.
+ */
+static const int lkp_fs = 256; // 2^8
+static const int lkp_ss = 256; // 2^8
+static const int lkp_ts = 65536; // 2^16
+
 struct app_config {
     struct app_config_port ports[RTE_MAX_ETHPORTS];
 

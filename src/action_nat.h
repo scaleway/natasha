@@ -12,6 +12,6 @@ int action_nat_rewrite(struct rte_mbuf *pkt, uint8_t port, struct core *core,
 
 void nat_reset_lookup_table(uint32_t ***nat_lookup);
 int add_rules_to_table(uint32_t ****nat_lookup, uint32_t int_ip, uint32_t ext_ip);
-int nat_dump_rules(uint32_t ***nat_lookup);
+int nat_dump_rules(char *prefix, uint32_t ***nat_lookup);
 
 #endif

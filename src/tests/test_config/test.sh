@@ -1,5 +1,9 @@
 #!/bin/sh
 
+#
+# Run ./bin for each *.conf, and compare it's output against the expect file.
+#
+
 cd $(dirname $0)
 
 error() {

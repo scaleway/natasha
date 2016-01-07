@@ -228,6 +228,7 @@ cond:
 
         $$ = node;
     }
+    | '(' cond[node] ')' { $$ = $node; }
     | cond_in_network
 ;
 

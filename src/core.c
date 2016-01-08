@@ -137,8 +137,17 @@ main_loop(void *pcore)
 }
 
 /*
- * Initialize network port, and create a RX and a TX queue for each logical
- * port activated – except the master core.
+ * Initialize a network port and its network queues.
+ *
+ * For each logical non-master core activated, we setup a RX and a TX queue. We
+ * also collect queues statistics at indexes <lcore idx> for the RX queue, and
+ * <lcore idx + number of cores> for the TX queue.
+ *
+ * Example with the slave cores 3, 4 and 5 activated:
+ *
+ * Core 3: RX Queue 0 (stats idx=0), TX Queue 0 (stats idx=3)
+ * Core 4: RX Queue 1 (stats idx=1), TX Queue 1 (stats idx=4)
+ * Core 5: RX Queue 2 (stats idx=2), TX Queue 2 (stats idx=5)
  */
 static int
 port_init(uint8_t port, struct core *cores)
@@ -177,6 +186,7 @@ port_init(uint8_t port, struct core *cores)
     ncores = rte_lcore_count();
     // one RX and one TX queue per core, except for the master core
     nqueues = ncores - 1;
+
     ret = rte_eth_dev_configure(port, nqueues, nqueues, &eth_conf);
     if (ret < 0) {
         RTE_LOG(ERR, APP, "Failed to configure ethernet device port %i\n",
@@ -222,6 +232,8 @@ port_init(uint8_t port, struct core *cores)
         struct rte_mempool *mempool;
         char mempool_name[RTE_MEMPOOL_NAMESIZE];
         int socket;
+        const int rx_stats_idx = queue_id;
+        const int tx_stats_idx = queue_id + ncores - 1;
 
         snprintf(mempool_name, sizeof(mempool_name),
                  "core_%d_port_%d", core, port);
@@ -265,12 +277,32 @@ port_init(uint8_t port, struct core *cores)
             return ret;
         }
 
+        ret = rte_eth_dev_set_rx_queue_stats_mapping(port, queue_id,
+                                                     rx_stats_idx);
+        if (ret < 0) {
+            RTE_LOG(ERR, APP,
+                    "Port %i: failed to setup statistics of RX queue %i on "
+                    "core %i: %s\n",
+                    port, queue_id, core, rte_strerror(rte_errno));
+            return ret;
+        }
+
         // TX queue
         ret = rte_eth_tx_queue_setup(port, queue_id, tx_ring_size, socket,
                                      &tx_conf);
         if (ret < 0) {
             RTE_LOG(ERR, APP,
                     "Port %i: failed to setup TX queue %i on core %i: %s\n",
+                    port, queue_id, core, rte_strerror(rte_errno));
+            return ret;
+        }
+
+        ret = rte_eth_dev_set_tx_queue_stats_mapping(port, queue_id,
+                                                     tx_stats_idx);
+        if (ret < 0) {
+            RTE_LOG(ERR, APP,
+                    "Port %i: failed to setup statistics of TX queue %i on "
+                    "core %i: %s\n",
                     port, queue_id, core, rte_strerror(rte_errno));
             return ret;
         }

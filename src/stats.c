@@ -10,6 +10,9 @@ static int
 eth_stats(uint8_t port)
 {
     struct rte_eth_stats stats;
+    int core;
+    int queue_id;
+    int ncores;
 
     if (rte_eth_stats_get(port, &stats) != 0) {
         RTE_LOG(ERR, APP, "Port %i: unable to get stats: %s\n",
@@ -25,6 +28,29 @@ eth_stats(uint8_t port)
         stats.imissed, stats.ibadcrc, stats.ibadlen,
         stats.rx_nombuf
     );
+
+    ncores = rte_lcore_count();
+    queue_id = 0;
+    RTE_LCORE_FOREACH_SLAVE(core) {
+        // See to port initialization documentation to understand rx_stats_idx
+        // and tx_stats_idx.
+        const int rx_stats_idx = queue_id;
+        const int tx_stats_idx = queue_id + ncores - 1;
+
+        printf("Core %i RX queue=%d: q_ibytes=%lu,q_ipackets=%lu,q_obytes=%lu,"
+                "q_opackets=%lu,q_errors=%lu\n",
+                core, queue_id, stats.q_ibytes[rx_stats_idx],
+                stats.q_ipackets[rx_stats_idx], stats.q_obytes[rx_stats_idx],
+                stats.q_opackets[rx_stats_idx], stats.q_errors[rx_stats_idx]);
+
+        printf("Core %i TX queue=%d: q_ibytes=%lu,q_ipackets=%lu,q_obytes=%lu,"
+                "q_opackets=%lu,q_errors=%lu\n",
+                core, queue_id, stats.q_ibytes[tx_stats_idx],
+                stats.q_ipackets[tx_stats_idx], stats.q_obytes[tx_stats_idx],
+                stats.q_opackets[tx_stats_idx], stats.q_errors[tx_stats_idx]);
+
+        ++queue_id;
+    }
     return 0;
 }
 

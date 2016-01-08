@@ -163,86 +163,89 @@ adm_loop(int s)
 
         events = select(maxfd + 1, &readfds, NULL, NULL, &timeout);
         if (events < 0) {
-            RTE_LOG(ERR, APP,
-                    "Adm server: cannot select on adm UNIX socket: %s\n",
-                    strerror(errno));
-            return EXIT_FAILURE;
+            if (errno != EINTR) {
+                RTE_LOG(ERR, APP,
+                        "Adm server: cannot select on adm UNIX socket: %s\n",
+                        strerror(errno));
+                return EXIT_FAILURE;
+            }
         }
         // No new command, check if slave cores are still alive
         else if (events == 0) {
             check_slaves_alive(&slaves_alive);
         }
+        else {
+            // New client?
+            if (FD_ISSET(s, &readfds)) {
+                struct sockaddr_un client;
+                int cs;
+                socklen_t len;
 
-        // New client?
-        if (FD_ISSET(s, &readfds)) {
-            struct sockaddr_un client;
-            int cs;
-            socklen_t len;
-
-            // Accept
-            if ((cs = accept(s, (struct sockaddr *)&client, &len)) < 0) {
-                RTE_LOG(ERR, APP, "Adm server: accept error: %s\n",
-                        strerror(errno));
-            }
-            // Too many connections, reject client
-            if (num_clients >= max_clients) {
-                RTE_LOG(ERR, APP,
-                        "Adm server: reject client (too many connections)\n");
-                close(cs);
-            }
-            // Append client
-            else {
-                for (i = 0; i < max_clients; ++i) {
-                    if (clients[i].fd == 0) {
-                        clients[i].fd = cs;
-                        ++num_clients;
-                        break ;
+                // Accept
+                if ((cs = accept(s, (struct sockaddr *)&client, &len)) < 0) {
+                    RTE_LOG(ERR, APP, "Adm server: accept error: %s\n",
+                            strerror(errno));
+                }
+                // Too many connections, reject client
+                if (num_clients >= max_clients) {
+                    RTE_LOG(ERR, APP,
+                            "Adm server: reject client (too many connections)\n");
+                    close(cs);
+                }
+                // Append client
+                else {
+                    for (i = 0; i < max_clients; ++i) {
+                        if (clients[i].fd == 0) {
+                            clients[i].fd = cs;
+                            ++num_clients;
+                            break ;
+                        }
                     }
                 }
+                --events;
             }
-            --events;
-        }
 
-        // Read clients commands
-        while (--events >= 0) {
-            for (i = 0; i < max_clients; ++i) {
-                if (FD_ISSET(clients[i].fd, &readfds)) {
-                    size_t curlen = strlen(clients[i].buf);
-                    ssize_t nbread;
-                    size_t to_read;
+            // Read clients commands
+            while (--events >= 0) {
+                for (i = 0; i < max_clients; ++i) {
+                    if (FD_ISSET(clients[i].fd, &readfds)) {
+                        size_t curlen = strlen(clients[i].buf);
+                        ssize_t nbread;
+                        size_t to_read;
 
-                    to_read = sizeof(clients[i].buf) - curlen - 1;
-                    if (to_read == 0) {
-                        RTE_LOG(ERR, APP,
-                                "Adm server: command too long, close client\n");
-                        disconnect_client(&clients[i]);
-                        --num_clients;
-                        break ;
-                    }
+                        to_read = sizeof(clients[i].buf) - curlen - 1;
+                        if (to_read == 0) {
+                            RTE_LOG(ERR, APP,
+                                    "Adm server: command too long, close client\n");
+                            disconnect_client(&clients[i]);
+                            --num_clients;
+                            break ;
+                        }
 
-                    nbread = read(clients[i].fd, clients[i].buf + curlen, to_read);
-                    FD_CLR(clients[i].fd, &readfds);
+                        nbread = read(clients[i].fd, clients[i].buf + curlen, to_read);
+                        FD_CLR(clients[i].fd, &readfds);
 
-                    // error
-                    if (nbread < 0) {
-                        RTE_LOG(ERR, APP, "Adm server: client read error\n");
-                        disconnect_client(&clients[i]);
-                        --num_clients;
-                    }
-                    // disconnect
-                    else if (nbread == 0) {
-                        disconnect_client(&clients[i]);
-                        --num_clients;
-                    }
-                    // append and handle commands
-                    else {
-                        clients[i].buf[curlen + nbread] = 0;
-                        if (run_commands(&clients[i]) < 0) {
+                        // error
+                        if (nbread < 0) {
+                            RTE_LOG(ERR, APP, "Adm server: client read error\n");
                             disconnect_client(&clients[i]);
                             --num_clients;
                         }
+                        // disconnect
+                        else if (nbread == 0) {
+                            disconnect_client(&clients[i]);
+                            --num_clients;
+                        }
+                        // append and handle commands
+                        else {
+                            clients[i].buf[curlen + nbread] = 0;
+                            if (run_commands(&clients[i]) < 0) {
+                                disconnect_client(&clients[i]);
+                                --num_clients;
+                            }
+                        }
+                        break ;
                     }
-                    break ;
                 }
             }
         }

@@ -334,7 +334,8 @@ static struct core __cores[RTE_MAX_LCORE] = {};
 /*
  * Signal handler for SIGUSR2 to reload configuration.
  */
-void sig_reload_conf(int sig)
+void
+sig_reload_conf(int sig)
 {
     unsigned int i;
     struct core *cores = __cores;

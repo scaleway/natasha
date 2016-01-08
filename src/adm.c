@@ -35,6 +35,14 @@ command_quit(struct client *client)
 }
 
 static int
+command_reload(struct client *client)
+{
+    sig_reload_conf(-1);
+    dprintf(client->fd, "Asynchronously reloading configuration\n");
+    return 0;
+}
+
+static int
 run_command(struct client *client)
 {
     struct {
@@ -44,6 +52,7 @@ run_command(struct client *client)
         {"quit", command_quit},
         {"exit", command_quit},
         {"help", command_help},
+        {"reload", command_reload},
     };
     size_t i;
 

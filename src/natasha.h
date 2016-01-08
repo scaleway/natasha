@@ -135,13 +135,22 @@ struct core {
 /*
  * Prototypes.
  */
+
+// core.c
+void sig_reload_conf(int sig);
+
+// config.c
 int app_config_reload(struct app_config *config, int argc, char **argv,
                       int verbose);
+
+// stats.c
 void stats_display(int sig);
 
+// pkt.c
 uint16_t tx_send(struct rte_mbuf *pkt, uint8_t port, struct tx_queue *queue);
 uint16_t tx_flush(uint8_t port, struct tx_queue *queue);
 
+// arp.c
 int arp_handle(struct rte_mbuf *pkt, uint8_t port, struct core *core);
 int ipv4_handle(struct rte_mbuf *pkt, uint8_t port, struct core *core);
 

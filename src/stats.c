@@ -7,7 +7,7 @@
 
 
 static int
-eth_stats(uint8_t port)
+eth_stats(uint8_t port, int fd)
 {
     struct rte_eth_stats stats;
     int core;
@@ -18,7 +18,7 @@ eth_stats(uint8_t port)
         RTE_LOG(ERR, APP, "Port %i: unable to get stats: %s\n",
                 port, rte_strerror(rte_errno));
     }
-    printf(
+    dprintf(fd,
         "Port %d: ipackets=%lu,opackets=%lu,ibytes=%lu,obytes=%lu,ierrors=%lu,"
         "oerrors=%lu,imissed=%lu,ibadcrc=%lu,ibadlen=%lu,rx_nombuf=%lu\n",
         port,
@@ -37,13 +37,15 @@ eth_stats(uint8_t port)
         const int rx_stats_idx = queue_id;
         const int tx_stats_idx = queue_id + ncores - 1;
 
-        printf("Core %i RX queue=%d: q_ibytes=%lu,q_ipackets=%lu,q_obytes=%lu,"
+        dprintf(fd,
+                "Core %i RX queue=%d: q_ibytes=%lu,q_ipackets=%lu,q_obytes=%lu,"
                 "q_opackets=%lu,q_errors=%lu\n",
                 core, queue_id, stats.q_ibytes[rx_stats_idx],
                 stats.q_ipackets[rx_stats_idx], stats.q_obytes[rx_stats_idx],
                 stats.q_opackets[rx_stats_idx], stats.q_errors[rx_stats_idx]);
 
-        printf("Core %i TX queue=%d: q_ibytes=%lu,q_ipackets=%lu,q_obytes=%lu,"
+        dprintf(fd,
+                "Core %i TX queue=%d: q_ibytes=%lu,q_ipackets=%lu,q_obytes=%lu,"
                 "q_opackets=%lu,q_errors=%lu\n",
                 core, queue_id, stats.q_ibytes[tx_stats_idx],
                 stats.q_ipackets[tx_stats_idx], stats.q_obytes[tx_stats_idx],
@@ -54,16 +56,15 @@ eth_stats(uint8_t port)
     return 0;
 }
 
-
 /*
  * Display ports and queues statistics on stdout.
  */
 void
-stats_display(int sig)
+stats_display(int fd)
 {
     uint8_t port;
 
     for (port = 0; port < rte_eth_dev_count(); ++port) {
-        eth_stats(port);
+        eth_stats(port, fd);
     }
 }

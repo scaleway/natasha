@@ -43,6 +43,13 @@ command_reload(struct client *client)
 }
 
 static int
+command_stats(struct client *client)
+{
+    stats_display(client->fd);
+    return 0;
+}
+
+static int
 run_command(struct client *client)
 {
     struct {
@@ -53,6 +60,7 @@ run_command(struct client *client)
         {"exit", command_quit},
         {"help", command_help},
         {"reload", command_reload},
+        {"stats", command_stats},
     };
     size_t i;
 

@@ -8,4 +8,3 @@ TODO
 - In admin server, check slave cores are still running
 - Implement show stats command
 - Implement reload command
-- Implement CLI tool in Python

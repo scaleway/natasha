@@ -37,6 +37,7 @@ SRCS-y +=                           \
     action_out.c                    \
     action_log.c                    \
     action_nat.c                    \
+	adm.c                           \
     arp.c                           \
     cond_network.c                  \
     config.c                        \

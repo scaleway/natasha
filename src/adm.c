@@ -80,6 +80,30 @@ disconnect_client(struct client *client)
     memset(client, 0, sizeof(*client));
 }
 
+static void
+check_slaves_alive(int *slaves_alive)
+{
+    int core;
+    int ok;
+
+    ok = 0;
+    RTE_LCORE_FOREACH_SLAVE(core) {
+        if (rte_eal_get_lcore_state(core) == RUNNING) {
+            ++ok;
+        }
+    }
+
+    if (ok == 0) {
+        rte_exit(EXIT_FAILURE, "No slave running, exit\n");
+    }
+
+    if (ok < *slaves_alive) {
+        RTE_LOG(EMERG, APP,
+                "Some cores stopped working! Only %i cores are running\n", ok);
+    }
+    *slaves_alive = ok;
+}
+
 /*
  * Accept connections and answer to queries.
  */
@@ -89,15 +113,18 @@ adm_loop(int s)
     struct client clients[2];
     const int max_clients = sizeof(clients) / sizeof(*clients);
     int num_clients;
+    int slaves_alive;
 
     memset(clients, 0, sizeof(clients));
     num_clients = 0;
+    slaves_alive = 0;
 
     while (1) {
         size_t i;
         fd_set readfds;
         int maxfd;
         int events;
+        struct timeval timeout;
 
         FD_ZERO(&readfds);
         FD_SET(s, &readfds);
@@ -113,12 +140,20 @@ adm_loop(int s)
             }
         }
 
-        events = select(maxfd + 1, &readfds, NULL, NULL, NULL);
+        // Setup timeout
+        memset(&timeout, 0, sizeof(timeout));
+        timeout.tv_sec = 1;
+
+        events = select(maxfd + 1, &readfds, NULL, NULL, &timeout);
         if (events < 0) {
             RTE_LOG(ERR, APP,
                     "Adm server: cannot select on adm UNIX socket: %s\n",
                     strerror(errno));
             return EXIT_FAILURE;
+        }
+        // No new command, check if slave cores are still alive
+        else if (events == 0) {
+            check_slaves_alive(&slaves_alive);
         }
 
         // New client?

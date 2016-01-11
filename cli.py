@@ -34,18 +34,21 @@ class NatashaCLI(cmd.Cmd):
 
 def main():
     socket_name = '/var/run/natasha.socket'
-    sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
 
-    try:
-        sock.connect(socket_name)
-    except IOError as exc:
-        sys.stderr.write('Unable to connect to %s: %s\n' % (
-            socket_name, exc)
-        )
-        sys.exit(1)
+    while True:
+        sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
 
-    NatashaCLI().cmdloop(sock)
-    sock.close()
+        try:
+            sock.connect(socket_name)
+        except IOError as exc:
+            pass
+
+        try:
+            return NatashaCLI().cmdloop(sock)
+        except IOError as exc:
+            sys.stderr.write('CLI error: %s\n' % exc)
+
+        sock.close()
 
 
 if __name__ == '__main__':

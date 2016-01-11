@@ -37,8 +37,7 @@ command_quit(struct client *client)
 static int
 command_reload(struct client *client)
 {
-    sig_reload_conf(-1);
-    dprintf(client->fd, "Asynchronously reloading configuration\n");
+    app_config_reload_all(client->fd);
     return 0;
 }
 

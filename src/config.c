@@ -37,13 +37,22 @@ reset_rules(struct app_config_node *root)
     return NULL;
 }
 
+static void
+free_config(struct app_config *config)
+{
+    // Empty NAT lookup table
+    nat_reset_lookup_table(config->nat_lookup);
+
+    // Free packet rules
+    config->rules = reset_rules(config->rules);
+}
+
 /*
  * Load or reload configuration. If a configuration is already loaded,
  * free it.
  */
 int
-app_config_reload(struct app_config *config, int argc, char **argv,
-                  int verbose)
+app_config_reload(struct app_config *config, int argc, char **argv)
 {
     int i;
     char *config_file;
@@ -80,12 +89,7 @@ app_config_reload(struct app_config *config, int argc, char **argv,
         goto err;
     }
 
-    // Remove NAT rules from lookup table. New rules are added during
-    // configuration parsing.
-    nat_reset_lookup_table(config->nat_lookup);
-
-    // Free old configuration
-    config->rules = reset_rules(config->rules);
+    free_config(config);
 
     // Parse the configuration file
     yylex_init(&scanner);
@@ -97,11 +101,6 @@ app_config_reload(struct app_config *config, int argc, char **argv,
         goto err;
     }
 
-    // Display NAT rules
-    if (verbose) {
-        nat_dump_rules(NULL, config->nat_lookup);
-    }
-
     fclose(handle);
     return 0;
 
@@ -110,4 +109,39 @@ err:
         fclose(handle);
     }
     return -1;
+}
+
+extern struct core g_cores[RTE_MAX_LCORE];
+extern int g_argc;
+extern char **g_argv;
+
+/*
+ * Ensure configuration is valid, and ask to each worker to reload itself
+ * asynchronously.
+ */
+int
+app_config_reload_all(int out_fd)
+{
+    struct app_config master_config = {};
+    unsigned int i;
+    struct core *cores = g_cores;
+
+    // Check config is valid on master core
+    if (app_config_reload(&master_config, g_argc, g_argv) < 0) {
+        dprintf(out_fd, "Invalid configuration. Not reloaded.\n");
+        return -1;
+    }
+
+    // Display NAT rules
+    if (out_fd > 0) {
+        nat_dump_rules(out_fd, master_config.nat_lookup);
+    }
+
+    free_config(&master_config);
+
+    // Ok, ask worker cores to reload themselves
+    RTE_LCORE_FOREACH_SLAVE(i) {
+        cores[i].need_reload_conf = 1;
+    }
+    return 0;
 }

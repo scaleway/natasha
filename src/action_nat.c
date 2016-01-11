@@ -157,12 +157,12 @@ add_rules_to_table(uint32_t ****nat_lookup, uint32_t int_ip, uint32_t ext_ip)
  *  - Number of rules in nat_lookup.
  */
 int
-nat_dump_rules(char *prefix, uint32_t ***nat_lookup)
+nat_dump_rules(int out_fd, uint32_t ***nat_lookup)
 {
     size_t n;
     int i, j, k;
 
-    printf("NAT RULES\n*********\n");
+    dprintf(out_fd, "NAT RULES\n*********\n");
 
     if (nat_lookup == NULL)
         return 0;
@@ -179,10 +179,9 @@ nat_dump_rules(char *prefix, uint32_t ***nat_lookup)
 
                 ++n;
 
-                printf("%s" IPv4_FMT " -> " IPv4_FMT "\n",
-                    prefix ? prefix : "NAT rule> ",
-                    IPv4_FMTARGS(IPv4(i, j, (k >> 8) & 0xff, k & 0xff)),
-                    IPv4_FMTARGS(nat_lookup[i][j][k]));
+                dprintf(out_fd, IPv4_FMT " -> " IPv4_FMT "\n",
+                        IPv4_FMTARGS(IPv4(i, j, (k >> 8) & 0xff, k & 0xff)),
+                        IPv4_FMTARGS(nat_lookup[i][j][k]));
             }
         }
     }

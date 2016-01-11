@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <unistd.h>
 
 #include "action_nat.h"
 #include "natasha.h"
@@ -50,7 +51,7 @@ main(int argc, char **argv)
         exit(1);
     }
 
-    if (app_config_reload(&app_config, argc - ret, argv + ret, 1) < 0) {
+    if (app_config_reload(&app_config, argc - ret, argv + ret) < 0) {
         fprintf(stderr, "Unable to load configuration\n");
         exit(1);
     }
@@ -67,7 +68,8 @@ main(int argc, char **argv)
     }
 
     // Dump NAT rules
-    nat_dump_rules("EXPECT:", app_config.nat_lookup);
+    fflush(stdout);
+    nat_dump_rules(STDOUT_FILENO, app_config.nat_lookup);
 
     if (app_config.rules == NULL) {
         printf("EXPECT: no packet rules\n");

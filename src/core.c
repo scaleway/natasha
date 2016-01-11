@@ -1,4 +1,5 @@
 #include <signal.h>
+#include <unistd.h>
 
 #include <rte_common.h>
 #include <rte_cycles.h>
@@ -15,6 +16,11 @@
 // Flush TX queues after ~BURST_TX_DRAIN_US microseconds.
 static const int
 BURST_TX_DRAIN_US = 1000; // 0.1ms
+
+// Needs to be global since accessed from signal handler.
+struct core g_cores[RTE_MAX_LCORE] = {};
+int g_argc;
+char **g_argv;
 
 
 static int
@@ -72,16 +78,8 @@ int
 reload_conf(struct core *core)
 {
     int ret;
-    int verbose;
 
-    // Only be verbose for the first slave core, to prevent configuration
-    // logging to be displayed more than once.
-    verbose = (rte_get_next_lcore(-1, 1, 0) == core->id);
-
-    ret = app_config_reload(&core->app_config,
-                            core->app_argc, core->app_argv,
-                            verbose);
-
+    ret = app_config_reload(&core->app_config, core->app_argc, core->app_argv);
     if (ret < 0) {
         RTE_LOG(CRIT, APP, "Core %i: unable to load configuration\n",
                 core->id);
@@ -106,7 +104,6 @@ main_loop(void *pcore)
     const uint64_t drain_tsc =
         (rte_get_tsc_hz() + US_PER_S - 1) / US_PER_S * BURST_TX_DRAIN_US;
 
-    core->need_reload_conf = 1;
     eth_dev_count = rte_eth_dev_count();
     prev_tsc = rte_rdtsc();
     while (1) {
@@ -328,21 +325,13 @@ port_init(uint8_t port, struct core *cores)
     return 0;
 }
 
-// Needs to be global since accessed from signal handler. Initialized to 0.
-static struct core __cores[RTE_MAX_LCORE] = {};
-
 /*
  * Signal handler for SIGUSR2 to reload configuration.
  */
-void
+static void
 sig_reload_conf(int sig)
 {
-    unsigned int i;
-    struct core *cores = __cores;
-
-    RTE_LCORE_FOREACH_SLAVE(i) {
-        cores[i].need_reload_conf = 1;
-    }
+    app_config_reload_all(STDOUT_FILENO);
 }
 
 /*
@@ -357,7 +346,15 @@ run_workers(int argc, char **argv)
     uint8_t eth_dev_count;
     unsigned ncores;
     unsigned int core;
-    struct core *cores = __cores;
+    struct core *cores = g_cores;
+
+    // Load configuration
+    g_argc = argc;
+    g_argv = argv;
+    if (app_config_reload_all(STDOUT_FILENO) < 0) {
+        RTE_LOG(ERR, APP, "Unable to load configuration\n");
+        return -1;
+    }
 
     eth_dev_count = rte_eth_dev_count();
     if (eth_dev_count == 0) {
@@ -387,6 +384,7 @@ run_workers(int argc, char **argv)
         }
     }
 
+    // Launch workers
     RTE_LCORE_FOREACH_SLAVE(core) {
         cores[core].id = core;
         cores[core].app_argc = argc;

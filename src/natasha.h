@@ -136,12 +136,9 @@ struct core {
  * Prototypes.
  */
 
-// core.c
-void sig_reload_conf(int sig);
-
 // config.c
-int app_config_reload(struct app_config *config, int argc, char **argv,
-                      int verbose);
+int app_config_reload(struct app_config *config, int argc, char **argv);
+int app_config_reload_all(int out_fd);
 
 // stats.c
 void stats_display(int fd);

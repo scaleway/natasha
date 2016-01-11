@@ -17,6 +17,10 @@ for f in *.conf; do
 
     ./bin -c 0x3 -n 1 --no-huge -- -f ${f} > ${out}
 
-    cat ${out} | grep ^EXPECT: | sed 's/^EXPECT:\s*//g' | diff -B - ${expect} \
+    # Only keep lines beginning with "EXPECT:" and NAT rules ./bin output to
+    # compare against the .expect file.
+    cat ${out}                                          \
+        | grep -E "(^EXPECT:|[0-9\.]+ \-> [0-9\.]+)"    \
+        | sed 's/^EXPECT:\s*//g' | diff -B - ${expect}  \
         || error
 done

@@ -18,15 +18,18 @@ arp_request(struct rte_mbuf *pkt, uint8_t port, struct core *core)
     source_ip = rte_be_to_cpu_32(arp_hdr->arp_data.arp_sip);
     target_ip = rte_be_to_cpu_32(arp_hdr->arp_data.arp_tip);
 
-    RTE_LOG(INFO, APP, "Port %d: Who has " IPv4_FMT "? asks " IPv4_FMT "\n",
-            port, IPv4_FMTARGS(target_ip), IPv4_FMTARGS(source_ip)
+    RTE_LOG(INFO, APP,
+            "Port %d: Who has " IPv4_FMT "? asks " IPv4_FMT " on vlan %d\n",
+            port, IPv4_FMTARGS(target_ip), IPv4_FMTARGS(source_ip),
+            VLAN_ID(pkt)
     );
 
-    // This request is not for me
-    if (target_ip != core->app_config.ports[port].ip) {
+    if (!is_natasha_port_ip(&core->app_config, target_ip,
+                            VLAN_ID(pkt), port)) {
         RTE_LOG(DEBUG, APP,
-                "Port %d: " IPv4_FMT " is not my IP address,"
-                " ARP request ignored\n", port, IPv4_FMTARGS(target_ip));
+                "Port %d: " IPv4_FMT " is not my IP address on vlan %d,"
+                " ARP request ignored\n", port, IPv4_FMTARGS(target_ip),
+                VLAN_ID(pkt));
         return -1;
     }
 
@@ -57,7 +60,7 @@ arp_request(struct rte_mbuf *pkt, uint8_t port, struct core *core)
     RTE_LOG(
         INFO, APP, "Port %d: Send ARP Reply –"
                    " src ether: " MAC_FMT " IP: " IPv4_FMT
-                   " – dst ether: " MAC_FMT " IP: " IPv4_FMT "\n",
+                   " – dst ether: " MAC_FMT " IP: " IPv4_FMT " on vlan %d\n",
         port,
 
         MAC_FMTARGS(arp_hdr->arp_data.arp_sha),
@@ -65,6 +68,8 @@ arp_request(struct rte_mbuf *pkt, uint8_t port, struct core *core)
 
         MAC_FMTARGS(arp_hdr->arp_data.arp_tha),
         IPv4_FMTARGS(rte_be_to_cpu_32(arp_hdr->arp_data.arp_tip)),
+
+        VLAN_ID(pkt)
     );
 
     return tx_send(pkt, port, &core->tx_queues[port]);
@@ -81,8 +86,8 @@ arp_handle(struct rte_mbuf *pkt, uint8_t port, struct core *core)
 
     default:
         RTE_LOG(DEBUG, APP,
-                "ARP packet received on port %d, but not of type "
-                "ARP_OP_REQUEST – skip\n", port);
+                "ARP packet received on port %d/vlan %d, but not of type "
+                "ARP_OP_REQUEST – skip\n", port, VLAN_ID(pkt));
         break ;
     }
     return -1;

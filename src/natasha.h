@@ -28,8 +28,16 @@
 struct core;
 
 // Network port.
-struct app_config_port {
+struct ip_vlan {
     uint32_t ip;
+    int vlan;
+};
+
+struct app_config_port {
+    struct app_config_port_ip_addr {
+        struct ip_vlan addr;
+        struct app_config_port_ip_addr *next;
+    } *ip_addresses;
 };
 
 // A condition, to specify whether an action should be processed or not.
@@ -138,6 +146,7 @@ struct core {
 
 // config.c
 int app_config_reload(struct app_config *config, int argc, char **argv);
+void app_config_free(struct app_config *config);
 int app_config_reload_all(int out_fd);
 
 // stats.c
@@ -146,6 +155,11 @@ void stats_display(int fd);
 // pkt.c
 uint16_t tx_send(struct rte_mbuf *pkt, uint8_t port, struct tx_queue *queue);
 uint16_t tx_flush(uint8_t port, struct tx_queue *queue);
+
+int is_natasha_ip(struct app_config *app_config,
+                  uint32_t ip, int vlan);
+int is_natasha_port_ip(struct app_config *app_config,
+                       uint32_t ip, int vlan, uint8_t port);
 
 // arp.c
 int arp_handle(struct rte_mbuf *pkt, uint8_t port, struct core *core);

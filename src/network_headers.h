@@ -47,4 +47,7 @@ L3_HEADER(udp, struct udp_hdr);
 #undef L2_HEADER
 #undef L3_HEADER
 
+// last 12 bits of the TCI field
+#define VLAN_ID(pkt) ((pkt)->vlan_tci & 0xfff)
+
 #endif

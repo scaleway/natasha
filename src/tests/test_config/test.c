@@ -62,8 +62,16 @@ main(int argc, char **argv)
 
     // Dump ports
     for (i = 0; i < sizeof(app_config.ports) / sizeof(*app_config.ports); ++i) {
-        if (app_config.ports[i].ip) {
-            printf("EXPECT: port %lu = " IPv4_FMT "\n", i, IPv4_FMTARGS(app_config.ports[i].ip));
+        struct app_config_port_ip_addr *port_ip_addr;
+
+        port_ip_addr = app_config.ports[i].ip_addresses;
+        while (port_ip_addr) {
+            printf("EXPECT: port %lu = " IPv4_FMT " vlan %i\n",
+                   i,
+                   IPv4_FMTARGS(port_ip_addr->addr.ip),
+                   port_ip_addr->addr.vlan);
+
+            port_ip_addr = port_ip_addr->next;
         }
     }
 

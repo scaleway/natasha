@@ -4,6 +4,43 @@
 
 
 /*
+ * @return
+ *  - True if ip is configured on port in vlan.
+ */
+int
+is_natasha_port_ip(struct app_config *app_config, uint32_t ip, int vlan,
+                   uint8_t port)
+{
+    struct app_config_port_ip_addr *ip_addr;
+
+    ip_addr = app_config->ports[port].ip_addresses;
+    while (ip_addr) {
+        if (ip_addr->addr.ip == ip && ip_addr->addr.vlan == vlan) {
+            return 1;
+        }
+        ip_addr = ip_addr->next;
+    }
+    return 0;
+}
+
+/*
+ * @return
+ *  - True if ip is configured on any port in vlan.
+ */
+int
+is_natasha_ip(struct app_config *app_config, uint32_t ip, int vlan)
+{
+    uint8_t port;
+
+    for (port = 0; port < rte_eth_dev_count(); ++port) {
+        if (is_natasha_port_ip(app_config, ip, vlan, port)) {
+            return 1;
+        }
+    }
+    return 0;
+}
+
+/*
  * Send a burst of output packets on the transmit @queue of @port.
  *
  * Packets that can't be stored in the transmit ring are freed.
@@ -46,6 +83,11 @@ tx_flush(uint8_t port, struct tx_queue *queue)
 uint16_t
 tx_send(struct rte_mbuf *pkt, uint8_t port, struct tx_queue *queue)
 {
+    // Offload VLAN tagging if pkt has a non-zero vlan
+    if (pkt->vlan_tci) {
+        pkt->ol_flags |= PKT_TX_VLAN_PKT;
+    }
+
     pkt->l2_len = sizeof(struct ether_hdr);
     pkt->l3_len = sizeof(struct ipv4_hdr);
 

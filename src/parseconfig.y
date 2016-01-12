@@ -29,6 +29,7 @@
 
 %token TOK_PORT
 %token TOK_IP
+%token TOK_VLAN
 %token TOK_NAT_RULE
 %token TOK_NAT_REWRITE
 %token TOK_IF
@@ -55,6 +56,7 @@
     struct ether_addr mac;
     struct ipv4_network ipv4_network;
     struct app_config_node *config_node;
+    struct app_config_port_ip_addr *port_ip_addrs;
 }
 
 /* Semantic values */
@@ -75,8 +77,12 @@
 %type<config_node> action
 %type<config_node> action_nat_rewrite
 %type<config_node> action_out
+%type<number>	   action_out_opt_vlan
 %type<config_node> action_print
 %type<config_node> action_drop
+
+%type<number>		config_port_opt_vlan
+%type<port_ip_addrs>	config_port_extra_ips
 
 %{
 #include "parseconfig.yy.h"
@@ -119,14 +125,46 @@ config_lines:
 ;
 
 config_port:
-    TOK_PORT NUMBER[port] TOK_IP IPV4_ADDRESS[ip] ';'
-    {
+    TOK_PORT NUMBER[port]
+	config_port_opt_vlan[vlan] TOK_IP IPV4_ADDRESS[ip]
+	config_port_extra_ips[next_ips] ';' {
+
+	struct app_config_port_ip_addr *port_ip;
+
         if ($port >= RTE_MAX_ETHPORTS) {
             yyerror(scanner, config, "Invalid port number");
             YYERROR;
         }
-        config->ports[$port].ip = $ip;
+
+	port_ip = rte_zmalloc(NULL, sizeof(*port_ip), 0);
+	CHECK_PTR(port_ip);
+	port_ip->addr.ip = $ip;
+	port_ip->addr.vlan = $vlan;
+	port_ip->next = $next_ips;
+
+        config->ports[$port].ip_addresses = port_ip;
     }
+;
+
+config_port_extra_ips:
+    /* empty */ {
+	$$ = NULL;
+    }
+    | config_port_opt_vlan[vlan] TOK_IP IPV4_ADDRESS[ip] config_port_extra_ips[next] {
+	struct app_config_port_ip_addr *port_ip;
+
+	port_ip = rte_zmalloc(NULL, sizeof(*port_ip), 0);
+	CHECK_PTR(port_ip);
+	port_ip->addr.ip = $ip;
+	port_ip->addr.vlan = $vlan;
+	port_ip->next = $next;
+	$$ = port_ip;
+    }
+;
+
+config_port_opt_vlan:
+    /* empty */             { $$ = 0; }
+    | TOK_VLAN NUMBER[vlan] { $$ = $vlan; }
 ;
 
 config_nat_rule:
@@ -294,7 +332,7 @@ action_nat_rewrite:
 ;
 
 action_out:
-    TOK_OUT TOK_PORT NUMBER[port] TOK_MAC MAC_ADDRESS[mac] ';' {
+    TOK_OUT TOK_PORT NUMBER[port] TOK_MAC MAC_ADDRESS[mac] action_out_opt_vlan[vlan] ';' {
         struct app_config_node *node;
         struct out_packet *data;
 
@@ -306,6 +344,7 @@ action_out:
 
         data->port = $port;
         data->next_hop = $mac;
+	data->vlan = $vlan;
 
         node->type = ACTION;
         node->action = action_out;
@@ -314,6 +353,10 @@ action_out:
         $$ = node;
     }
 ;
+
+action_out_opt_vlan:
+    /* empty */             { $$ = 0; }
+    | TOK_VLAN NUMBER[vlan] { $$ = $vlan; }
 
 action_print:
     TOK_PRINT {

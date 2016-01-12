@@ -37,9 +37,25 @@ reset_rules(struct app_config_node *root)
     return NULL;
 }
 
-static void
-free_config(struct app_config *config)
+void
+app_config_free(struct app_config *config)
 {
+    uint8_t i;
+
+    // Free ports IP addresses
+    for (i = 0; i < sizeof(config->ports) / sizeof(*config->ports); ++i) {
+        struct app_config_port_ip_addr *ip;
+        struct app_config_port_ip_addr *next;
+
+        ip = config->ports[i].ip_addresses;
+        while (ip) {
+            next = ip->next;
+            rte_free(ip);
+            ip = next;
+        }
+        config->ports[i].ip_addresses = NULL;
+    }
+
     // Empty NAT lookup table
     nat_reset_lookup_table(config->nat_lookup);
 
@@ -89,7 +105,7 @@ app_config_reload(struct app_config *config, int argc, char **argv)
         goto err;
     }
 
-    free_config(config);
+    app_config_free(config);
 
     // Parse the configuration file
     yylex_init(&scanner);
@@ -122,24 +138,28 @@ extern char **g_argv;
 int
 app_config_reload_all(int out_fd)
 {
-    struct app_config master_config = {};
-    unsigned int i;
+    int argc = g_argc;
+    char **argv = g_argv;
     struct core *cores = g_cores;
 
-    // Check config is valid on master core
-    if (app_config_reload(&master_config, g_argc, g_argv) < 0) {
-        dprintf(out_fd, "Invalid configuration. Not reloaded.\n");
+    struct app_config master_config = {};
+    unsigned int i;
+
+    // check config is valid on master core
+    if (app_config_reload(&master_config, argc, argv) < 0) {
+        dprintf(out_fd, "invalid configuration. not reloaded.\n");
         return -1;
     }
 
-    // Display NAT rules
+    // Display nat rules
     if (out_fd > 0) {
         nat_dump_rules(out_fd, master_config.nat_lookup);
     }
 
-    free_config(&master_config);
+    // master_config was only used to check configuration, free it
+    app_config_free(&master_config);
 
-    // Ok, ask worker cores to reload themselves
+    // Ask workers to reload configuration
     RTE_LCORE_FOREACH_SLAVE(i) {
         cores[i].need_reload_conf = 1;
     }

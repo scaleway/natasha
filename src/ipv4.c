@@ -79,28 +79,22 @@ icmp_dispatch(struct rte_mbuf *pkt, uint8_t port, struct core *core)
 static int
 icmp_answer(struct rte_mbuf *pkt, uint8_t port, struct core *core)
 {
-    int ret;
     struct ipv4_hdr *ipv4_hdr;
     uint32_t dst_ip;
-    uint8_t n;
 
     ipv4_hdr = ipv4_header(pkt);
     dst_ip = rte_be_to_cpu_32(ipv4_hdr->dst_addr);
 
-    for (n = 0; n < RTE_MAX_ETHPORTS; ++n) {
-
-        if (dst_ip == core->app_config.ports[n].ip) {
-            ret = icmp_dispatch(pkt, port, core);
-            // Even if we can't handle pkt, it is addressed to us. Drop it and
-            // return 0 to mark it as processed.
-            if (ret < 0) {
-                rte_pktmbuf_free(pkt);
-                return 0;
-            }
-            return ret;
-        }
+    if (!is_natasha_ip(&core->app_config, dst_ip, VLAN_ID(pkt))) {
+        return -1;
     }
-    return -1;
+
+    // Even if we can't handle pkt, it is addressed to us. Drop it and
+    // return 0 to mark it as processed.
+    if (icmp_dispatch(pkt, port, core) < 0) {
+        rte_pktmbuf_free(pkt);
+    }
+    return 0;
 }
 
 #define X(cond) do {    \

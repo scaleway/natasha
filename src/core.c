@@ -106,6 +106,8 @@ main_loop(void *pcore)
 
     eth_dev_count = rte_eth_dev_count();
     prev_tsc = rte_rdtsc();
+    core->need_reload_conf = 1;
+
     while (1) {
         const uint64_t cur_tsc = rte_rdtsc();
         int need_flush;
@@ -148,7 +150,7 @@ main_loop(void *pcore)
  * Core 5: RX Queue 2 (stats idx=2), TX Queue 2 (stats idx=5)
  */
 static int
-port_init(uint8_t port, struct core *cores)
+port_init(uint8_t port, struct app_config *app_config, struct core *cores)
 {
     int ret;
 
@@ -159,7 +161,11 @@ port_init(uint8_t port, struct core *cores)
             .split_hdr_size = 0,
             .header_split = 0,              /* Header Split disabled */
                .hw_ip_checksum = 1,         /* IP checksum offload enabled */
-               .hw_vlan_filter = 0,         /* VLAN filtering disabled */
+
+               // Enable VLAN filtering to only accept traffic from VLANs
+               // configured with rte_eth_dev_vlan_filter.
+               .hw_vlan_filter = 1,
+
                .max_rx_pkt_len = 9198,
                .jumbo_frame = 1,            /* Jumbo Frame Support disabled */
                .hw_strip_crc = 0,           /* CRC stripped by hardware */
@@ -179,6 +185,7 @@ port_init(uint8_t port, struct core *cores)
     };
     unsigned int core;
     uint16_t queue_id;
+    struct app_config_port_ip_addr *port_ip_addr;
 
     /* Configure device */
     ncores = rte_lcore_count();
@@ -190,6 +197,32 @@ port_init(uint8_t port, struct core *cores)
         RTE_LOG(ERR, APP, "Failed to configure ethernet device port %i\n",
                 port);
         return ret;
+    }
+
+    // Accept traffic for VLANs
+    port_ip_addr = app_config->ports[port].ip_addresses;
+    while (port_ip_addr) {
+
+        if (port_ip_addr->addr.vlan &&
+            rte_eth_dev_vlan_filter(port, port_ip_addr->addr.vlan, 1) < 0) {
+
+            RTE_LOG(ERR, APP,
+                    "Failed to filter traffic on vlan %i for port %i\n",
+                    port_ip_addr->addr.vlan, port);
+            return -1;
+        }
+
+        port_ip_addr = port_ip_addr->next;
+    }
+
+    // ETH_VLAN_STRIP_OFFLOAD: remove VLAN header
+    // ETH_VLAN_FILTER_OFFLOAD: accept traffic from VLANs configured above
+    if (rte_eth_dev_set_vlan_offload(
+        port, ETH_VLAN_STRIP_OFFLOAD | ETH_VLAN_FILTER_OFFLOAD
+    ) < 0) {
+        RTE_LOG(ERR, APP, "Failed to setup vlan offload features on port %i\n",
+                port);
+        return -1;
     }
 
     /* Configure queues */
@@ -340,18 +373,18 @@ sig_reload_conf(int sig)
 static int
 run_workers(int argc, char **argv)
 {
+    struct core *cores = g_cores;
+
     int ret;
 
+    struct app_config app_config = {};
     uint8_t port;
     uint8_t eth_dev_count;
     unsigned ncores;
     unsigned int core;
-    struct core *cores = g_cores;
 
-    // Load configuration
-    g_argc = argc;
-    g_argv = argv;
-    if (app_config_reload_all(STDOUT_FILENO) < 0) {
+    // Parse configuration
+    if (app_config_reload(&app_config, argc, argv) < 0) {
         RTE_LOG(ERR, APP, "Unable to load configuration\n");
         return -1;
     }
@@ -377,12 +410,15 @@ run_workers(int argc, char **argv)
     // Configure ports
     for (port = 0; port < eth_dev_count; ++port) {
         RTE_LOG(INFO, APP, "Configuring port %i...\n", port);
-        ret = port_init(port, cores);
+        ret = port_init(port, &app_config, cores);
         if (ret < 0) {
             RTE_LOG(ERR, APP, "Cannot initialize network ports\n");
             return -1;
         }
     }
+
+    // Configuration for the master core is only used to setup ports.
+    app_config_free(&app_config);
 
     // Launch workers
     RTE_LCORE_FOREACH_SLAVE(core) {
@@ -409,8 +445,6 @@ natasha(int argc, char **argv)
 {
     int ret;
 
-    signal(SIGUSR2, sig_reload_conf);
-
     ret = rte_eal_init(argc, argv);
     if (ret < 0) {
 		rte_exit(EXIT_FAILURE, "Error with EAL initialization\n");
@@ -422,6 +456,14 @@ natasha(int argc, char **argv)
     if (ret < 0) {
         rte_exit(EXIT_FAILURE, "Unable to launch workers\n");
     }
+
+    // g_argc and g_argv must be set so app_config_reload_all() (called by
+    // sig_reload_conf() and adm.c/command_reload()) can verify the
+    // configuration is valid before asking to workers to reload themselves.
+    g_argc = argc;
+    g_argv = argv;
+
+    signal(SIGUSR2, sig_reload_conf);
 
     return adm_server();
 }

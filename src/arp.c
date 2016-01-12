@@ -61,10 +61,10 @@ arp_request(struct rte_mbuf *pkt, uint8_t port, struct core *core)
         port,
 
         MAC_FMTARGS(arp_hdr->arp_data.arp_sha),
-        IPv4_FMTARGS(source_ip),
+        IPv4_FMTARGS(rte_be_to_cpu_32(arp_hdr->arp_data.arp_sip)),
 
         MAC_FMTARGS(arp_hdr->arp_data.arp_tha),
-        IPv4_FMTARGS(target_ip)
+        IPv4_FMTARGS(rte_be_to_cpu_32(arp_hdr->arp_data.arp_tip)),
     );
 
     return tx_send(pkt, port, &core->tx_queues[port]);

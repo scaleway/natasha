@@ -48,10 +48,10 @@ SRCS-y +=                           \
 
 natasha: $(CONFIG_OUTPUT) all
 
-$(FLEX_OUTPUT): $(FLEX_INPUT)
+$(FLEX_OUTPUT): $(FLEX_INPUT) natasha.h
 	flex -o $(FLEX_OUTPUT_C) --header-file=$(FLEX_OUTPUT_H) $(FLEX_INPUT)
 
-$(BISON_OUTPUT): $(BISON_INPUT)
+$(BISON_OUTPUT): $(BISON_INPUT) natasha.h
 	bison -d -o $(BISON_OUTPUT_C) $(BISON_INPUT)
 
 endif

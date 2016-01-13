@@ -39,6 +39,7 @@ def main():
         try:
             sock.connect(socket_name)
         except IOError as exc:
+            sys.stderr.write('connect error: %s\n' % exc)
             pass
 
         if len(sys.argv) > 1:
@@ -47,7 +48,7 @@ def main():
         try:
             return NatashaCLI(stdout=sock).cmdloop()
         except IOError as exc:
-            sys.stderr.write('CLI error: %s\n' % exc)
+            sys.stderr.write('command error: %s\n' % exc)
 
         sock.close()
 

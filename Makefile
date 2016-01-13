@@ -15,22 +15,22 @@ all:
 
 
 # Dynamically discover unittests
-TESTS=$(shell find $(RTE_SRCDIR)/tests                  \
-		-mindepth 1 -maxdepth 1 -type d         \
-		-exec basename {} \;)
+TESTS=$(shell find $(RTE_SRCDIR)/tests    \
+         -mindepth 1 -maxdepth 1 -type d  \
+         -exec basename {} \;)
 
 test:
 	# Building tests...
-	@for test in $(TESTS); do                                   \
+	@for test in $(TESTS); do                               \
 		$(MAKE) -C . -f $(RTE_SRCDIR)/tests/$$test/Makefile \
-			--no-print-directory                        \
-			RTE_OUTPUT=$(RTE_OUTPUT)/$$test             \
-			UNITTEST=1                                  \
-			build_test                                  \
+			--no-print-directory                            \
+			RTE_OUTPUT=$(RTE_OUTPUT)/$$test                 \
+			UNITTEST=1                                      \
+			build_test                                      \
 	; done
 	# Running tests...
-	@for test in $(TESTS); do                            \
-		sudo $(RTE_OUTPUT)/$$test/test               \
+	@for test in $(TESTS); do                                \
+		sudo $(RTE_OUTPUT)/$$test/test                       \
                   && echo "[OK] $$test" ||                   \
                            echo "[FAIL] $$test (status=$$?)" \
 	; done

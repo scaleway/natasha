@@ -223,7 +223,6 @@ adm_loop(int s, struct core *cores, int argc, char **argv)
                         }
 
                         nbread = read(clients[i].fd, clients[i].buf + curlen, to_read);
-                        FD_CLR(clients[i].fd, &readfds);
 
                         // error
                         if (nbread < 0) {

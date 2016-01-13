@@ -12,6 +12,11 @@ config {
     port 0 ip 10.2.31.11;
     port 1 ip 212.47.255.91;
 
+    # Also possible:
+    # port 0 vlan 10 ip 10.0.0.0;
+    # or
+    # port 0 ip 10.0.0.0 vlan 10 ip 10.0.0.1 vlan 11 ip 10.0.0.2;
+
     # NAT RULES
     nat rule 10.2.0.2 212.47.255.128;
     nat rule 10.2.0.3 212.47.255.129;
@@ -41,6 +46,9 @@ rules {
         nat rewrite ipv4.dst_addr;
         out port 0 mac 7c:0e:ce:25:f3:97;
     }
+
+    # Also possible:
+    # if (vlan 10) { ... }
 
     print;
 }

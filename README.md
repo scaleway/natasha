@@ -6,4 +6,3 @@ TODO
 - Return ICMP response if TTL is exceeded.
 - Improve CLI (auto-completion, select loop).
 - Handle #include directive in configuration.
-- Add cond_vlan.

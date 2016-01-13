@@ -13,6 +13,7 @@
 #include "action_nat.h"
 #include "action_out.h"
 #include "cond_network.h"
+#include "cond_vlan.h"
 %}
 
 /* Make parser reentrant */
@@ -73,6 +74,7 @@
 
 %type<config_node> cond
 %type<config_node> cond_in_network
+%type<config_node> cond_vlan
 
 %type<config_node> action
 %type<config_node> action_nat_rewrite
@@ -271,6 +273,7 @@ cond:
     }
     | '(' cond[node] ')' { $$ = $node; }
     | cond_in_network
+    | cond_vlan
 ;
 
 cond_in_network:
@@ -293,6 +296,27 @@ cond_in_network:
         } else {
             node->action = cond_ipv4_dst_in_network;
         }
+        node->data = data;
+
+        $$ = node;
+    }
+;
+
+cond_vlan:
+    TOK_VLAN NUMBER[vlan] {
+        struct app_config_node *node;
+	int *data;
+
+        node = rte_zmalloc(NULL, sizeof(*node), 0);
+        CHECK_PTR(node);
+
+        data = rte_zmalloc(NULL, sizeof(*data), 0);
+        CHECK_PTR(data);
+
+	*data = $vlan;
+
+        node->type = ACTION;
+	node->action = cond_vlan;
         node->data = data;
 
         $$ = node;

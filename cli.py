@@ -1,7 +1,7 @@
 import cmd
+import select
 import socket
 import sys
-import time
 
 
 class NatashaCLI(cmd.Cmd):
@@ -17,11 +17,17 @@ class NatashaCLI(cmd.Cmd):
             return True
 
         self.stdout.sendall(line.strip() + '\n')
-        response = self.stdout.recv(4096)
-        if not len(response):
-            return True
 
-        sys.stdout.write(response)
+        while True:
+            # if no data after 0.01 second, assume server's response is
+            # displayed
+            events = select.select([self.stdout], [], [], 0.01)
+
+            if not events[0]:
+                return False
+
+            response = self.stdout.recv(4096)
+            sys.stdout.write(response)
 
 
 def main():

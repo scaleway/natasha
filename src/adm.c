@@ -1,4 +1,5 @@
 #include <errno.h>
+#include <fcntl.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
@@ -182,7 +183,9 @@ adm_loop(int s, struct core *cores, int argc, char **argv)
                 socklen_t len;
 
                 // Accept
-                if ((cs = accept(s, (struct sockaddr *)&client, &len)) < 0) {
+                if ((cs = accept(s, (struct sockaddr *)&client, &len)) < 0
+                        || fcntl(cs, F_SETFL, O_NONBLOCK) < 0) {
+
                     RTE_LOG(ERR, APP, "Adm server: accept error: %s\n",
                             strerror(errno));
                 }

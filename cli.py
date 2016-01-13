@@ -8,14 +8,6 @@ class NatashaCLI(cmd.Cmd):
 
     prompt = '(natasha) '
 
-    def __init__(self, *args, **kwargs):
-        cmd.Cmd.__init__(self, *args, **kwargs)
-        self.sock = None
-
-    def cmdloop(self, sock, *args, **kwargs):
-        self.sock = sock
-        cmd.Cmd.cmdloop(self, *args, **kwargs)
-
     def do_help(self, what):
         return self.default('help %s' % what)
 
@@ -24,8 +16,8 @@ class NatashaCLI(cmd.Cmd):
         if line == 'EOF':
             return True
 
-        self.sock.sendall(line.strip() + '\n')
-        response = self.sock.recv(4096)
+        self.stdout.sendall(line.strip() + '\n')
+        response = self.stdout.recv(4096)
         if not len(response):
             return True
 
@@ -43,8 +35,11 @@ def main():
         except IOError as exc:
             pass
 
+        if len(sys.argv) > 1:
+            return NatashaCLI(stdout=sock).onecmd(' '.join(sys.argv[1:]))
+
         try:
-            return NatashaCLI().cmdloop(sock)
+            return NatashaCLI(stdout=sock).cmdloop()
         except IOError as exc:
             sys.stderr.write('CLI error: %s\n' % exc)
 

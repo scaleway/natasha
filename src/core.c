@@ -1,5 +1,4 @@
 #include <signal.h>
-#include <unistd.h>
 
 #include <rte_common.h>
 #include <rte_cycles.h>
@@ -441,6 +440,10 @@ natasha(int argc, char **argv)
     if (ret < 0) {
         rte_exit(EXIT_FAILURE, "Unable to launch workers\n");
     }
+
+    // If we write to a CLI client when he is disconnected, write() will return
+    // -1 instead of raising SIGPIPE.
+    signal(SIGPIPE, SIG_IGN);
 
     return adm_server(cores, argc, argv);
 }

@@ -207,6 +207,10 @@ ipv4_handle(struct rte_mbuf *pkt, uint8_t port, struct core *core)
         return -1;
     }
 
-    ret = process_rules(core->app_config.rules, pkt, port, core);
+    // process_rules returns -1 if it encounters a breaking rule (eg.
+    // action_out or action_drop). We don't want to return -1 because the
+    // caller function – dispatch_patcher() in core.c – would free pkt.
+    (void)process_rules(core->app_config.rules, pkt, port, core);
+
     return 0;
 }

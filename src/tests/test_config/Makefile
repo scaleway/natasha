@@ -1,7 +1,7 @@
 TEST = test_config
 
-export APP = bin
-export SRCS-y = tests/$(TEST)/test.c
+export APP = test_config_bin
+export SRCS-y = tests/$(TEST)/main.c
 
 build_test: all
 	$(Q)cp $(RTE_SRCDIR)/tests/$(TEST)/*.conf $(RTE_OUTPUT)

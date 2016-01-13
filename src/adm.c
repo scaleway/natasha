@@ -17,7 +17,7 @@ struct client {
 
 
 static int
-command_help(struct client *client)
+command_help(struct client *client, struct core *cores, int argc, char **argv)
 {
     dprintf(client->fd,
             "Available commands:\n\n"
@@ -29,31 +29,32 @@ command_help(struct client *client)
 }
 
 static int
-command_quit(struct client *client)
+command_quit(struct client *client, struct core *cores, int argc, char **argv)
 {
     return -1;
 }
 
 static int
-command_reload(struct client *client)
+command_reload(struct client *client, struct core *cores,
+               int argc, char **argv)
 {
-    app_config_reload_all(client->fd);
+    app_config_reload_all(cores, argc, argv, client->fd);
     return 0;
 }
 
 static int
-command_stats(struct client *client)
+command_stats(struct client *client, struct core *cores, int argc, char **argv)
 {
     stats_display(client->fd);
     return 0;
 }
 
 static int
-run_command(struct client *client)
+run_command(struct client *client, struct core *cores, int argc, char **argv)
 {
     struct {
         char *command;
-        int (*func)(struct client *);
+        int (*func)(struct client *, struct core *, int, char **);
     } commands[] = {
         {"quit", command_quit},
         {"exit", command_quit},
@@ -65,7 +66,7 @@ run_command(struct client *client)
 
     for (i = 0; i < sizeof(commands) / sizeof(*commands); ++i) {
         if (strcmp(commands[i].command, client->buf) == 0) {
-            return commands[i].func(client);
+            return commands[i].func(client, cores, argc, argv);
         }
     }
     dprintf(client->fd, "%s: command not found\n", client->buf);
@@ -73,14 +74,14 @@ run_command(struct client *client)
 }
 
 static int
-run_commands(struct client *client)
+run_commands(struct client *client, struct core *cores, int argc, char **argv)
 {
     char *end;
     size_t rest;
 
     while ((end = strchr(client->buf, '\n'))) {
         *end = '\0';
-        if (run_command(client) < 0) {
+        if (run_command(client, cores, argc, argv) < 0) {
             return -1;
         }
         rest = end - client->buf + 1;
@@ -124,7 +125,7 @@ check_slaves_alive(int *slaves_alive)
  * Accept connections and answer to queries.
  */
 static int
-adm_loop(int s)
+adm_loop(int s, struct core *cores, int argc, char **argv)
 {
     struct client clients[2];
     const int max_clients = sizeof(clients) / sizeof(*clients);
@@ -238,7 +239,9 @@ adm_loop(int s)
                         // append and handle commands
                         else {
                             clients[i].buf[curlen + nbread] = 0;
-                            if (run_commands(&clients[i]) < 0) {
+
+                            if (run_commands(&clients[i],
+                                             cores, argc, argv) < 0) {
                                 disconnect_client(&clients[i]);
                                 --num_clients;
                             }
@@ -256,7 +259,7 @@ adm_loop(int s)
  * Run the administration server forerver.
  */
 int
-adm_server()
+adm_server(struct core *cores, int argc, char **argv)
 {
     int s;
     struct sockaddr_un local;
@@ -296,5 +299,5 @@ adm_server()
         return EXIT_FAILURE;
     }
 
-    return adm_loop(s);
+    return adm_loop(s, cores, argc, argv);
 }

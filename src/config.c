@@ -136,12 +136,8 @@ extern char **g_argv;
  * asynchronously.
  */
 int
-app_config_reload_all(int out_fd)
+app_config_reload_all(struct core *cores, int argc, char **argv, int out_fd)
 {
-    int argc = g_argc;
-    char **argv = g_argv;
-    struct core *cores = g_cores;
-
     struct app_config master_config = {};
     unsigned int i;
 

@@ -17,11 +17,6 @@
 static const int
 BURST_TX_DRAIN_US = 1000; // 0.1ms
 
-// Needs to be global since accessed from signal handler.
-struct core g_cores[RTE_MAX_LCORE] = {};
-int g_argc;
-char **g_argv;
-
 
 static int
 dispatch_packet(struct rte_mbuf *pkt, uint8_t port, struct core *core)
@@ -106,7 +101,6 @@ main_loop(void *pcore)
 
     eth_dev_count = rte_eth_dev_count();
     prev_tsc = rte_rdtsc();
-    core->need_reload_conf = 1;
 
     while (1) {
         const uint64_t cur_tsc = rte_rdtsc();
@@ -359,22 +353,11 @@ port_init(uint8_t port, struct app_config *app_config, struct core *cores)
 }
 
 /*
- * Signal handler for SIGUSR2 to reload configuration.
- */
-static void
-sig_reload_conf(int sig)
-{
-    app_config_reload_all(STDOUT_FILENO);
-}
-
-/*
- * Setup ethernet devices and run workers.
+ * Setup ethernet devices, initialize cores and run workers.
  */
 static int
-run_workers(int argc, char **argv)
+run_workers(struct core *cores, int argc, char **argv)
 {
-    struct core *cores = g_cores;
-
     int ret;
 
     struct app_config app_config = {};
@@ -425,6 +408,7 @@ run_workers(int argc, char **argv)
         cores[core].id = core;
         cores[core].app_argc = argc;
         cores[core].app_argv = argv;
+        cores[core].need_reload_conf = 1;
 
         ret = rte_eal_remote_launch(main_loop, &cores[core], core);
         if (ret < 0) {
@@ -444,6 +428,7 @@ natasha(int argc, char **argv)
 #endif
 {
     int ret;
+    struct core cores[RTE_MAX_LCORE] = {};
 
     ret = rte_eal_init(argc, argv);
     if (ret < 0) {
@@ -452,18 +437,10 @@ natasha(int argc, char **argv)
     argc -= ret;
     argv += ret;
 
-    ret = run_workers(argc, argv);
+    ret = run_workers(cores, argc, argv);
     if (ret < 0) {
         rte_exit(EXIT_FAILURE, "Unable to launch workers\n");
     }
 
-    // g_argc and g_argv must be set so app_config_reload_all() (called by
-    // sig_reload_conf() and adm.c/command_reload()) can verify the
-    // configuration is valid before asking to workers to reload themselves.
-    g_argc = argc;
-    g_argv = argv;
-
-    signal(SIGUSR2, sig_reload_conf);
-
-    return adm_server();
+    return adm_server(cores, argc, argv);
 }

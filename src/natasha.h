@@ -133,7 +133,17 @@ struct core {
     char **app_argv;
     struct app_config app_config;
 
-    // true if configuration must be reloaded
+    // * each worker thread reads need_reload_conf and, if 1, reload its
+    //   configuration, then set it to 0.
+    // * the adm server (in adm.c/command_reload()) sets this variable to 1 for
+    //   each worker thread.
+    //
+    // If command_reload() is called several times, a race condition could
+    // occur. The worst that could happen would be the configuration to be
+    // reloaded less or more times than requested. That's not an issue because
+    // the configuration will always be reloaded at least once. For this
+    // reason, no synchronization mechanism (spinlock, mutex) protects
+    // need_reload_conf.
     int need_reload_conf;
 
     struct rx_queue rx_queues[RTE_MAX_ETHPORTS];
@@ -147,7 +157,8 @@ struct core {
 // config.c
 int app_config_reload(struct app_config *config, int argc, char **argv);
 void app_config_free(struct app_config *config);
-int app_config_reload_all(int out_fd);
+int app_config_reload_all(struct core *cores, int argc, char **argv,
+                          int out_fd);
 
 // stats.c
 void stats_display(int fd);

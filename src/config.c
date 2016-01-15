@@ -16,6 +16,10 @@
 #include "parseconfig.yy.h"
 
 
+// Defined in parseconfig.lex
+void free_flex_buffers(yyscan_t scanner);
+
+
 static struct app_config_node *
 reset_rules(struct app_config_node *root)
 {
@@ -87,14 +91,14 @@ app_config_reload(struct app_config *config, int argc, char **argv)
         if (strcmp(argv[i], "-f") == 0) {
             if (i == argc - 1) {
                 RTE_LOG(EMERG, APP, "Filename required for -f\n");
-                goto err;
+                return -1;
             }
             config_file = argv[i + 1];
             ++i;
             continue ;
         } else {
             RTE_LOG(EMERG, APP, "Unknown option: %s\n", argv[i]);
-            goto err;
+            return -1;
         }
     }
 
@@ -102,7 +106,7 @@ app_config_reload(struct app_config *config, int argc, char **argv)
     if (handle == NULL) {
         RTE_LOG(EMERG, APP, "Fail to load %s: %s\n",
                 config_file, strerror(errno));
-        goto err;
+        return -1;
     }
 
     app_config_free(config);
@@ -111,20 +115,17 @@ app_config_reload(struct app_config *config, int argc, char **argv)
     yylex_init(&scanner);
     yyset_in(handle, scanner);
     ret = yyparse(scanner, config);
+
+    // Free handle and files opened during parsing
+    free_flex_buffers(scanner);
+
     yylex_destroy(scanner);
 
     if (ret != 0) {
-        goto err;
+        return -1;
     }
 
-    fclose(handle);
     return 0;
-
-err:
-    if (handle) {
-        fclose(handle);
-    }
-    return -1;
 }
 
 extern struct core g_cores[RTE_MAX_LCORE];

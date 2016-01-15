@@ -13,6 +13,9 @@
 /* Do not create a default rule to echo unmatched tokens. */
 %option nodefault
 
+/* Declare context include_ctx */
+%x include_ctx
+
 %{
 #include <stdio.h>
 
@@ -36,8 +39,8 @@ IPV4_NETWORK    {IPV4_ADDRESS}\/([0-9]|[1-2][0-9]|3[0-2])
 MAC_ADDRESS     ([0-9a-z]{2}:){5}[0-9a-z]{2}
 %%
 
-[ \t\n]*    /* ignore spaces */;
-#.*         /* ignore comments */;
+<*>[ \t\n]*    /* ignore spaces */;
+<*>#.*         /* ignore comments */;
 
 {self}  return yytext[0];
 
@@ -102,4 +105,62 @@ MAC_ADDRESS     ([0-9a-z]{2}:){5}[0-9a-z]{2}
 ipv4\.src_addr  yylval->number = IPV4_SRC_ADDR; return NAT_REWRITE_FIELD;
 ipv4\.dst_addr  yylval->number = IPV4_DST_ADDR; return NAT_REWRITE_FIELD;
 
+
+"!include"[ \t] {
+    // Start the include context
+    BEGIN(include_ctx);
+}
+
+<include_ctx>[^ \t\n]+  {
+    FILE *newfile;
+    YY_BUFFER_STATE state;
+
+    // We're in the include context. Open the file to include.
+    if ((newfile = fopen(yytext, "r")) == NULL) {
+        fprintf(stderr, "Unable to !include %s: %s\n",
+                yytext, strerror(errno));
+        return OOPS;
+    }
+
+    // * Create a new buffer for the included file
+    // * Push it on top of the buffers stack and make it active
+    //   (yyin = newfile after yypush_buffer_state()).
+    state = yy_create_buffer(newfile, YY_BUF_SIZE, yyscanner);
+    yypush_buffer_state(state, yyscanner);
+
+    // Start the default context with the new active buffer.
+    BEGIN(INITIAL);
+}
+
+<<EOF>> {
+    // Parsing successfully finished for the current file, close it.
+    fclose(yyin);
+
+    // Remove the current buffer from the top of the buffers stack and continue
+    // with the previous one.
+    yypop_buffer_state(yyscanner);
+
+    // There's no previous buffer, stop.
+    if (!YY_CURRENT_BUFFER) {
+        yyterminate();
+    }
+}
+
 <*>.|\n     return OOPS /* default rule */;
+
+%%
+
+/*
+ * In the case of parsing error, the special rule <<EOF>> is not reached and
+ * the files aren't closed.
+ * If the parsing was successful, YY_CURRENT_BUFFER is false and nothing is
+ * done.
+ */
+void free_flex_buffers(yyscan_t scanner) {
+    struct yyguts_t *yyg = (struct yyguts_t*)scanner;
+
+    while (YY_CURRENT_BUFFER) {
+        fclose(yyin);
+        yypop_buffer_state(scanner);
+    }
+}

@@ -122,6 +122,7 @@ config_section:
 
 config_lines:
     /* empty */
+    | config_lines ';'
     | config_lines config_port
     | config_lines config_nat_rule
 ;

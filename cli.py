@@ -19,9 +19,9 @@ class NatashaCLI(cmd.Cmd):
         self.stdout.sendall(line.strip() + '\n')
 
         while True:
-            # if no data after 0.01 second, assume server's response is
+            # if no data after n second, assume server's response is
             # displayed
-            events = select.select([self.stdout], [], [], 0.01)
+            events = select.select([self.stdout], [], [], 0.1)
 
             if not events[0]:
                 return False

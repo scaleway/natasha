@@ -141,6 +141,9 @@ main_loop(void *pcore)
  * Core 3: RX Queue 0 (stats idx=0), TX Queue 0 (stats idx=3)
  * Core 4: RX Queue 1 (stats idx=1), TX Queue 1 (stats idx=4)
  * Core 5: RX Queue 2 (stats idx=2), TX Queue 2 (stats idx=5)
+ *
+ * DPDK initialization parameters documentation is available in
+ * docs/DPDK_INITIALIZATION.md.
  */
 static int
 port_init(uint8_t port, struct app_config *app_config, struct core *cores)
@@ -150,30 +153,36 @@ port_init(uint8_t port, struct app_config *app_config, struct core *cores)
     unsigned int ncores;
     uint16_t nqueues;
     static const struct rte_eth_conf eth_conf = {
+        .link_speed=0,
+        .link_duplex=0,
         .rxmode = {
-            .split_hdr_size = 0,
-            .header_split = 0,           /* Header Split disabled */
-            .hw_ip_checksum = 1,         /* IP checksum offload enabled */
-
-            // Enable VLAN filtering to only accept traffic from VLANs
-            // configured with rte_eth_dev_vlan_filter.
-            .hw_vlan_filter = 1,
-
-            .max_rx_pkt_len = 9198,
-            .jumbo_frame = 1,            /* Jumbo Frame Support disabled */
-            .hw_strip_crc = 0,           /* CRC stripped by hardware */
-            .mq_mode = ETH_MQ_RX_RSS,
-        },
-        .rx_adv_conf = {
-            .rss_conf = {
-                .rss_key = NULL,
-                .rss_hf = ETH_RSS_IPV4
-                            | ETH_RSS_NONFRAG_IPV4_TCP
-                            | ETH_RSS_NONFRAG_IPV4_UDP,
-            },
+            .mq_mode=ETH_MQ_RX_NONE,
+            .jumbo_frame=0,
+            .max_rx_pkt_len=0,
+            .header_split=1,
+            .split_hdr_size=64,
+            .hw_ip_checksum=1,
+            .hw_vlan_filter=1,
+            .hw_vlan_strip=1,
+            .hw_vlan_extend=0,
+            .hw_strip_crc=1,
+            .enable_scatter=1,
+            .enable_lro=0,
         },
         .txmode = {
-            .mq_mode = ETH_MQ_TX_NONE,
+            .mq_mode=ETH_MQ_TX_NONE,
+            .pvid=0,
+            .hw_vlan_reject_tagged=0,
+            .hw_vlan_reject_untagged=0,
+            .hw_vlan_insert_pvid=0,
+        },
+        .lpbk_mode=0,
+        .rx_adv_conf = {
+            .rss_conf = {
+                .rss_key=NULL,
+                .rss_key_len=0,
+                .rss_hf = ETH_RSS_PROTO_MASK,
+            },
         },
     };
     unsigned int core;
@@ -208,49 +217,32 @@ port_init(uint8_t port, struct app_config *app_config, struct core *cores)
         port_ip_addr = port_ip_addr->next;
     }
 
-    // ETH_VLAN_STRIP_OFFLOAD: remove VLAN header
-    // ETH_VLAN_FILTER_OFFLOAD: accept traffic from VLANs configured above
-    if (rte_eth_dev_set_vlan_offload(
-        port, ETH_VLAN_STRIP_OFFLOAD | ETH_VLAN_FILTER_OFFLOAD
-    ) < 0) {
-        RTE_LOG(ERR, APP, "Failed to setup vlan offload features on port %i\n",
-                port);
-        return -1;
-    }
-
     /* Configure queues */
     queue_id = 0;
     RTE_LCORE_FOREACH_SLAVE(core) {
         static const int rx_ring_size = 128;
         static const int tx_ring_size = 256;
+
         static const struct rte_eth_rxconf rx_conf = {
             .rx_thresh = {
-                .pthresh = 8,       // Ring prefetch threshold.
-                .hthresh = 8,       // Ring host threshold.
-                .wthresh = 4,       // Ring writeback threshold.
+                .pthresh = 8,
+                .hthresh = 8,
+                .wthresh = 0,
             },
-            .rx_free_thresh = 64,   // Drives the freeing of RX descriptors.
-
-            // Drop packets if no descriptors are available.
-            .rx_drop_en = 1,
-            // Do not start queue with rte_eth_dev_start().
+            .rx_free_thresh = 32,
+            .rx_drop_en = 0,
             .rx_deferred_start = 0,
         };
         static const struct rte_eth_txconf tx_conf = {
             .tx_thresh = {
-                .pthresh = 36,  // Ring prefetch threshold.
-                .hthresh = 0,   // Ring host threshold.
-                .wthresh = 0,   // Ring writeback threshold.
+                .pthresh = 32,
+                .hthresh = 0,
+                .wthresh = 0,
             },
-            .tx_rs_thresh = 0,  // Drives the setting of RS bit on TXDs.
-
-            // Start freeing TX buffers if there are less free descriptors than
-            // this value.
-            .tx_free_thresh = 0,
-            // Set flags for the Tx queue.
+            .tx_rs_thresh = 32,
+            .tx_free_thresh = 32,
             .txq_flags = 0,
-            // Do not start queue with rte_eth_dev_start().
-            .tx_deferred_start = 0,
+            .tx_deferred_start = 0
         };
 
         struct rte_mempool *mempool;
@@ -267,12 +259,15 @@ port_init(uint8_t port, struct app_config *app_config, struct core *cores)
 
         mempool = rte_mempool_create(
             mempool_name,
-            /* n, number of elements in the pool – optimum size is 2^q-1 */
+            /* number of elements in the pool */
+            //255,
+            // If, as the doc says, we use 255, natasha deadlocks. Require more
+            // investigations to understand why, and what's the correct value
+            // to use here.
             1023,
             /* size of each element */
-            9198 + sizeof(struct rte_mbuf) + RTE_PKTMBUF_HEADROOM,
-            /* cache size – must be below CONFIG_RTE_MEMPOOL_CACHE_MAX_SIZE and
-             * below (n / 1.5). (n % cache size) should be equal to 0. */
+            RTE_MBUF_DEFAULT_DATAROOM,
+            /* cache size */
             0,
             /* private data size */
             sizeof(struct rte_pktmbuf_pool_private),
@@ -283,7 +278,7 @@ port_init(uint8_t port, struct app_config *app_config, struct core *cores)
             /* NUMA socket */
             socket,
             /* flags */
-            0
+            MEMPOOL_F_SP_PUT | MEMPOOL_F_SC_GET
         );
         if (!mempool) {
             RTE_LOG(ERR, APP, "Port %i: unable to create mempool: %s\n",
@@ -441,7 +436,7 @@ natasha(int argc, char **argv)
         rte_exit(EXIT_FAILURE, "Unable to launch workers\n");
     }
 
-    // If we write to a CLI client when he is disconnected, write() will return
+    // If we write to a CLI client when he is disconnected, make write() return
     // -1 instead of raising SIGPIPE.
     signal(SIGPIPE, SIG_IGN);
 

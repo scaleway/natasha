@@ -152,17 +152,17 @@ port_init(uint8_t port, struct app_config *app_config, struct core *cores)
     static const struct rte_eth_conf eth_conf = {
         .rxmode = {
             .split_hdr_size = 0,
-            .header_split = 0,              /* Header Split disabled */
-               .hw_ip_checksum = 1,         /* IP checksum offload enabled */
+            .header_split = 0,           /* Header Split disabled */
+            .hw_ip_checksum = 1,         /* IP checksum offload enabled */
 
-               // Enable VLAN filtering to only accept traffic from VLANs
-               // configured with rte_eth_dev_vlan_filter.
-               .hw_vlan_filter = 1,
+            // Enable VLAN filtering to only accept traffic from VLANs
+            // configured with rte_eth_dev_vlan_filter.
+            .hw_vlan_filter = 1,
 
-               .max_rx_pkt_len = 9198,
-               .jumbo_frame = 1,            /* Jumbo Frame Support disabled */
-               .hw_strip_crc = 0,           /* CRC stripped by hardware */
-               .mq_mode = ETH_MQ_RX_RSS,
+            .max_rx_pkt_len = 9198,
+            .jumbo_frame = 1,            /* Jumbo Frame Support disabled */
+            .hw_strip_crc = 0,           /* CRC stripped by hardware */
+            .mq_mode = ETH_MQ_RX_RSS,
         },
         .rx_adv_conf = {
             .rss_conf = {

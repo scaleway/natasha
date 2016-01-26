@@ -239,8 +239,8 @@ port_init(uint8_t port, struct app_config *app_config, struct core *cores)
                 .hthresh = 0,
                 .wthresh = 0,
             },
-            .tx_rs_thresh = 32,
-            .tx_free_thresh = 32,
+            .tx_rs_thresh = 0,
+            .tx_free_thresh = 0,
             .txq_flags = 0,
             .tx_deferred_start = 0
         };

@@ -475,10 +475,49 @@ fields:
         should be set to 0 when tx_rs_thresh is greater than 1. Consequently,
         we use 0.
 
-    - **tx_rs_thresh**: drives the setting of RS bit. We use 32 (IDKW).
+    - **tx_rs_thresh**:
 
-    - **tx_free_thresh**: start freeing TX buffers if there are less free
-    descriptors than this value. We use 32 (IDKW).
+        [from Poll Mode Driver documentation] [doc_pmd]
+
+        ```
+            The minimum RS bit threshold. The minimum number of transmit
+            descriptors to use before setting the Report Status (RS) bit in the
+            transmit descriptor. Note that this parameter may only be valid for
+            Intel 10 GbE network adapters. The RS bit is set on the last
+            descriptor used to transmit a packet if the number of descriptors
+            used since the last RS bit setting, up to the first descriptor used
+            to transmit the packet, exceeds the transmit RS bit threshold
+            (tx_rs_thresh). In short, this parameter controls which transmit
+            descriptors are written back to host memory by the network adapter.
+            A value of 0 can be passed during the TX queue configuration to
+            indicate that the default value should be used. The default value
+            for tx_rs_thresh is 32. This ensures that at least 32 descriptors
+            are used before the network adapter writes back the most recently
+            used descriptor. This saves upstream PCIe* bandwidth resulting from
+            TX descriptor write-backs. It is important to note that the TX
+            Write-back threshold (TX wthresh) should be set to 0 when
+            tx_rs_thresh is greater than 1. Refer to the Intel® 82599 10
+            Gigabit Ethernet Controller Datasheet for more details.
+        ```
+
+    We use the default value, 0.
+
+    - **tx_free_thresh**:
+
+        [from Poll Mode Driver documentation] [doc_pmd]
+
+        ```
+        The minimum transmit packets to free threshold (tx_free_thresh). When
+        the number of descriptors used to transmit packets exceeds this
+        threshold, the network adaptor should be checked to see if it has
+        written back descriptors. A value of 0 can be passed during the TX
+        queue configuration to indicate the default value should be used. The
+        default value for tx_free_thresh is 32. This ensures that the PMD does
+        not search for completed descriptors until at least 32 have been
+        processed by the NIC for this queue.
+        ```
+
+        We use the default value, 0.
 
     - **txq_flags**: one of the following:
         - ETH_TXQ_FLAGS_NOMULTSEGS: nb_segs=1 for all mbufs (don't know what it
@@ -499,3 +538,4 @@ fields:
     we use 0.
 
 [config_transmit_receive_queues]: http://dpdk.org/doc/guides/prog_guide/poll_mode_drv.html
+[doc_pmd]: http://dpdk.org/doc/guides/prog_guide/poll_mode_drv.html

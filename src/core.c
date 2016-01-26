@@ -260,11 +260,7 @@ port_init(uint8_t port, struct app_config *app_config, struct core *cores)
         mempool = rte_mempool_create(
             mempool_name,
             /* number of elements in the pool */
-            //255,
-            // If, as the doc says, we use 255, natasha deadlocks. Require more
-            // investigations to understand why, and what's the correct value
-            // to use here.
-            1023,
+            8191, // = 2^13 - 1
             /* size of each element */
             RTE_MBUF_DEFAULT_DATAROOM,
             /* cache size */

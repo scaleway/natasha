@@ -361,8 +361,15 @@ self-explanatory fields have been omitted):
     rte_mempool_creates says the optimum size (in terms of memory usage) for a
     mempool is when n is a power a two minus one (2^q-1).
 
-    We use 255, as it's the smallest value above rx_ring_size (128) that is
-    2^q-1.
+    At first, I wanted to set this value equal to rx_ring_size. If we do so,
+    natasha stops working after receiving a few packets. According to my
+    investigations, it appears that mempools get exhausted if the value is
+    small — which I noticed by checking the value of the field
+    common_pool_count displayed by rte_mempool_dump().
+
+    Most of DPDK examples use the value 8192. We use 8192 to honor the
+    constraint 2^q-1, as it seems reliable. However, I don't understand what
+    could be the smallest possible value.
 
     - **elt_size**: the size of each element in the mempool.
 

@@ -17,14 +17,14 @@ action_out(struct rte_mbuf *pkt, uint8_t port, struct core *core, void *data)
     rte_eth_macaddr_get(port, &eth_hdr->s_addr);
     ether_addr_copy(&out->next_hop, &eth_hdr->d_addr);
 
-    // Offloat IPv4 checksum
+    // Offload IPv4 checksum
     ipv4_hdr->hdr_checksum = 0;
     pkt->ol_flags |= PKT_TX_IP_CKSUM;
 
     // Rewrite out vlan
     pkt->vlan_tci = out->vlan;
 
-    // Recompute L3 checksums
+    // Recompute L4 checksums
     switch (ipv4_hdr->next_proto_id) {
 
     case IPPROTO_TCP: {

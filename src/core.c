@@ -156,7 +156,7 @@ port_init(uint8_t port, struct app_config *app_config, struct core *cores)
         .link_speed=0,
         .link_duplex=0,
         .rxmode = {
-            .mq_mode=ETH_MQ_RX_NONE,
+            .mq_mode=ETH_MQ_RX_RSS,
             .jumbo_frame=0,
             .max_rx_pkt_len=0,
             .header_split=1,

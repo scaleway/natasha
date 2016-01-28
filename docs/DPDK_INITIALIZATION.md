@@ -87,7 +87,11 @@ documentation. For natasha, we use the following values:
         - VMDq filters data into queues based of MAC address of VLAN tags.
 
     natasha is completely stateless: we don't need a packet flow to be handled
-    always by the same core. As a result, we set mq_mode to ETH_MQ_RX_NONE.
+    always by the same core. However, if we use ETH_MQ_RX_NONE, only one
+    network queue is used to process all the packets.
+
+    To dispatch packets to our multiple receive queues, mq_mode needs to be
+    set. That's why we use ETH_MQ_RX_RSS.
 
 
 [intel_improve_network_perf]: http://www.intel.com/content/dam/doc/white-paper/improving-network-performance-in-multi-core-systems-paper.pdf

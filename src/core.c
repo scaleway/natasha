@@ -12,9 +12,9 @@
 #include "natasha.h"
 
 
-// Flush TX queues after ~BURST_TX_DRAIN_US microseconds.
+// Flush TX queues after ~BURST_RX_DRAIN_US microseconds.
 static const int
-BURST_TX_DRAIN_US = 1000; // 0.1ms
+BURST_RX_DRAIN_US = 100; // 0.001ms
 
 
 static int
@@ -96,7 +96,7 @@ main_loop(void *pcore)
 
     uint64_t prev_tsc;
     const uint64_t drain_tsc =
-        (rte_get_tsc_hz() + US_PER_S - 1) / US_PER_S * BURST_TX_DRAIN_US;
+        (rte_get_tsc_hz() + US_PER_S - 1) / US_PER_S * BURST_RX_DRAIN_US;
 
     eth_dev_count = rte_eth_dev_count();
     prev_tsc = rte_rdtsc();

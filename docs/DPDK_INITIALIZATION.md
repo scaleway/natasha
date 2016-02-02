@@ -93,9 +93,13 @@ documentation. For natasha, we use the following values:
     To dispatch packets to our multiple receive queues, mq_mode needs to be
     set. That's why we use ETH_MQ_RX_RSS.
 
+    Give a look to this [blog post] [rss_blog_post] to configure the RSS
+    indirection table.
+
 
 [intel_improve_network_perf]: http://www.intel.com/content/dam/doc/white-paper/improving-network-performance-in-multi-core-systems-paper.pdf
 [ixgbe_rss]: http://dpdk.org/browse/dpdk/tree/drivers/net/ixgbe/ixgbe_rxtx.c#n2582
+[rss_blog_post]: http://galsagie.github.io/dpdk%20design%20tips/dpdk/nfv/2015/02/26/dpdk-tips-1/
 
     - **jumbo_frame**: whether we enable or not jumbo frames. We use 0. This
     should probably need to be configurable.

@@ -61,11 +61,15 @@
 }
 
 /* Semantic values */
-%token <number> NUMBER
-%token <ipv4_address> IPV4_ADDRESS
-%token <ipv4_network> IPV4_NETWORK
-%token <number> NAT_REWRITE_FIELD
-%token <mac> MAC_ADDRESS
+%token <number>         NUMBER
+%token <ipv4_address>   IPV4_ADDRESS
+%token <ipv4_network>   IPV4_NETWORK
+%token <number>         NAT_REWRITE_FIELD
+%token <mac>            MAC_ADDRESS
+
+/* Config section */
+%type<number>          config_port_opt_vlan
+%type<port_ip_addrs>   config_port_extra_ips
 
 /* Rules types */
 %type<config_node> rules_content
@@ -79,12 +83,9 @@
 %type<config_node> action
 %type<config_node> action_nat_rewrite
 %type<config_node> action_out
-%type<number>	   action_out_opt_vlan
+%type<number>      action_out_opt_vlan
 %type<config_node> action_print
 %type<config_node> action_drop
-
-%type<number>		config_port_opt_vlan
-%type<port_ip_addrs>	config_port_extra_ips
 
 %{
 #include "parseconfig.yy.h"
@@ -127,41 +128,25 @@ config_lines:
     | config_lines config_nat_rule
 ;
 
+/* port n [vlan VLAN] ip IP [[vlan VLAN] ip IP...] */
 config_port:
     TOK_PORT NUMBER[port]
-	config_port_opt_vlan[vlan] TOK_IP IPV4_ADDRESS[ip]
-	config_port_extra_ips[next_ips] ';' {
+    config_port_opt_vlan[vlan] TOK_IP IPV4_ADDRESS[ip]
+    config_port_extra_ips[next_ips] ';' {
+        struct app_config_port_ip_addr *port_ip;
 
-	struct app_config_port_ip_addr *port_ip;
+            if ($port >= RTE_MAX_ETHPORTS) {
+                yyerror(scanner, config, "Invalid port number");
+                YYERROR;
+            }
 
-        if ($port >= RTE_MAX_ETHPORTS) {
-            yyerror(scanner, config, "Invalid port number");
-            YYERROR;
-        }
-
-	port_ip = rte_zmalloc(NULL, sizeof(*port_ip), 0);
-	CHECK_PTR(port_ip);
-	port_ip->addr.ip = $ip;
-	port_ip->addr.vlan = $vlan;
-	port_ip->next = $next_ips;
+        port_ip = rte_zmalloc(NULL, sizeof(*port_ip), 0);
+        CHECK_PTR(port_ip);
+        port_ip->addr.ip = $ip;
+        port_ip->addr.vlan = $vlan;
+        port_ip->next = $next_ips;
 
         config->ports[$port].ip_addresses = port_ip;
-    }
-;
-
-config_port_extra_ips:
-    /* empty */ {
-	$$ = NULL;
-    }
-    | config_port_opt_vlan[vlan] TOK_IP IPV4_ADDRESS[ip] config_port_extra_ips[next] {
-	struct app_config_port_ip_addr *port_ip;
-
-	port_ip = rte_zmalloc(NULL, sizeof(*port_ip), 0);
-	CHECK_PTR(port_ip);
-	port_ip->addr.ip = $ip;
-	port_ip->addr.vlan = $vlan;
-	port_ip->next = $next;
-	$$ = port_ip;
     }
 ;
 
@@ -169,6 +154,23 @@ config_port_opt_vlan:
     /* empty */             { $$ = 0; }
     | TOK_VLAN NUMBER[vlan] { $$ = $vlan; }
 ;
+
+config_port_extra_ips:
+    /* empty */ {
+        $$ = NULL;
+    }
+    | config_port_opt_vlan[vlan] TOK_IP IPV4_ADDRESS[ip] config_port_extra_ips[next] {
+        struct app_config_port_ip_addr *port_ip;
+
+        port_ip = rte_zmalloc(NULL, sizeof(*port_ip), 0);
+        CHECK_PTR(port_ip);
+        port_ip->addr.ip = $ip;
+        port_ip->addr.vlan = $vlan;
+        port_ip->next = $next;
+        $$ = port_ip;
+    }
+;
+
 
 config_nat_rule:
     TOK_NAT_RULE IPV4_ADDRESS[from] IPV4_ADDRESS[to] ';'
@@ -306,7 +308,7 @@ cond_in_network:
 cond_vlan:
     TOK_VLAN NUMBER[vlan] {
         struct app_config_node *node;
-	int *data;
+        int *data;
 
         node = rte_zmalloc(NULL, sizeof(*node), 0);
         CHECK_PTR(node);
@@ -314,10 +316,10 @@ cond_vlan:
         data = rte_zmalloc(NULL, sizeof(*data), 0);
         CHECK_PTR(data);
 
-	*data = $vlan;
+        *data = $vlan;
 
         node->type = ACTION;
-	node->action = cond_vlan;
+        node->action = cond_vlan;
         node->data = data;
 
         $$ = node;
@@ -369,7 +371,7 @@ action_out:
 
         data->port = $port;
         data->next_hop = $mac;
-	data->vlan = $vlan;
+        data->vlan = $vlan;
 
         node->type = ACTION;
         node->action = action_out;

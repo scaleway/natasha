@@ -34,6 +34,7 @@ struct ip_vlan {
 };
 
 struct app_config_port {
+    int mtu;
     struct app_config_port_ip_addr {
         struct ip_vlan addr;
         struct app_config_port_ip_addr *next;

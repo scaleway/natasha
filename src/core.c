@@ -152,13 +152,13 @@ port_init(uint8_t port, struct app_config *app_config, struct core *cores)
 
     unsigned int ncores;
     uint16_t nqueues;
-    static const struct rte_eth_conf eth_conf = {
+    struct rte_eth_conf eth_conf = {
         .link_speed=0,
         .link_duplex=0,
         .rxmode = {
             .mq_mode=ETH_MQ_RX_RSS,
-            .jumbo_frame=0,
-            .max_rx_pkt_len=0,
+            .jumbo_frame=(app_config->ports[port].mtu > ETHER_MAX_LEN),
+            .max_rx_pkt_len=app_config->ports[port].mtu,
             .header_split=1,
             .split_hdr_size=64,
             .hw_ip_checksum=1,

@@ -88,6 +88,7 @@ MAC_ADDRESS     ([0-9a-z]{2}:){5}[0-9a-z]{2}
 }
 
 "port"         return TOK_PORT;
+"mtu"          return TOK_MTU;
 "ip"           return TOK_IP;
 "vlan"         return TOK_VLAN;
 "nat rule"     return TOK_NAT_RULE;

@@ -101,10 +101,11 @@ documentation. For natasha, we use the following values:
 [ixgbe_rss]: http://dpdk.org/browse/dpdk/tree/drivers/net/ixgbe/ixgbe_rxtx.c#n2582
 [rss_blog_post]: http://galsagie.github.io/dpdk%20design%20tips/dpdk/nfv/2015/02/26/dpdk-tips-1/
 
-    - **jumbo_frame**: whether we enable or not jumbo frames. We use 0. This
-    should probably need to be configurable.
-    - **max_rx_pkt_len**: only used if jumbo_frame enabled. Since we disable
-    jumbo frames, we use 0.
+    - **jumbo_frame**: whether we enable or not jumbo frames. We use 1 if the
+       interface MTU configured in natasha.conf is bigger than ETHER_MAX_LEN,
+       otherwise 0.
+    - **max_rx_pkt_len**: only used if jumbo_frame enabled. We use the
+      interface MTU, configured in natasha.conf (default 1500).
     - **header_split**: whether we should split headers or not, as explained
     in [this document] [accelerating_network_processing]. In short, if true:
 

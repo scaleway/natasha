@@ -16,6 +16,9 @@ config {
     # port 0 vlan 10 ip 10.0.0.0;
     # or
     # port 0 ip 10.0.0.0 vlan 10 ip 10.0.0.1 vlan 11 ip 10.0.0.2;
+    #
+    # MTU can be set with:
+    # port 0 mtu 8192 ...
 
     # NAT RULES
     nat rule 10.2.0.2 212.47.255.128;

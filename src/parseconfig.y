@@ -30,6 +30,7 @@
 
 %token TOK_PORT
 %token TOK_IP
+%token TOK_MTU
 %token TOK_VLAN
 %token TOK_NAT_RULE
 %token TOK_NAT_REWRITE
@@ -68,6 +69,7 @@
 %token <mac>            MAC_ADDRESS
 
 /* Config section */
+%type<number>          config_port_opt_mtu
 %type<number>          config_port_opt_vlan
 %type<port_ip_addrs>   config_port_extra_ips
 
@@ -128,9 +130,10 @@ config_lines:
     | config_lines config_nat_rule
 ;
 
-/* port n [vlan VLAN] ip IP [[vlan VLAN] ip IP...] */
+/* port n [mtu MTU] [vlan VLAN] ip IP [[vlan VLAN] ip IP...] */
 config_port:
     TOK_PORT NUMBER[port]
+    config_port_opt_mtu[mtu]
     config_port_opt_vlan[vlan] TOK_IP IPV4_ADDRESS[ip]
     config_port_extra_ips[next_ips] ';' {
         struct app_config_port_ip_addr *port_ip;
@@ -142,12 +145,19 @@ config_port:
 
         port_ip = rte_zmalloc(NULL, sizeof(*port_ip), 0);
         CHECK_PTR(port_ip);
+
         port_ip->addr.ip = $ip;
         port_ip->addr.vlan = $vlan;
         port_ip->next = $next_ips;
 
+        config->ports[$port].mtu = $mtu;
         config->ports[$port].ip_addresses = port_ip;
     }
+;
+
+config_port_opt_mtu:
+    /* empty */             { $$ = 1500; }
+    | TOK_MTU NUMBER[mtu]   { $$ = $mtu; }
 ;
 
 config_port_opt_vlan:

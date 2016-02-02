@@ -178,6 +178,60 @@ process_rules(struct app_config_node *node, struct rte_mbuf *pkt, uint8_t port,
 #undef X
 
 /*
+ * Fix CISCO Nexus 9000 series bug when untagging a packet.
+ *
+ * Bug explaination:
+ *
+ * An Ethernet frame containing an IPv4 packet is formed as follow:
+ *
+ *      MAC_DEST MAC_SOURCE [VLAN] LENGTH PAYLOAD CRC
+ *
+ * where:
+ *
+ * - VLAN is optional
+ * - PAYLOAD is at minimum 46 bytes long if VLAN is absent, otherwise 42. In
+ *   this example, it contains the IPv4 packet.
+ * - CRC is the checksum computed from every field except VLAN.
+ *
+ * When a Nexus 9000 removes the VLAN from an Ethernet frame, it should adjust
+ * the payload and add NULL bytes in the case the payload size is below 46.
+ * Instead, it adds random bytes which causes the CRC to be considered invalid.
+ *
+ * This function updates the PAYLOAD padding and force it to only contain NULL
+ * bytes, so the frame becomes:
+ *
+ *      MAC_DEST MAC_SOURCE LENGTH PAYLOAD PADDING CRC
+ *
+ * where length of PAYLOAD+PADDING is at least 46, and PADDING only contains
+ * zeros.
+ *
+ * Consequently:
+ * - this function has no effect if there's no padding in pkt (ie. payload is
+ *   bigger than 46).
+ * - if pkt doesn't come from a buggy Nexus 9000, this function has no effect
+ *   since it rewrites the padding to 0, which was already set to 0.
+ */
+static inline void
+fix_nexus9000_padding_bug(struct rte_mbuf *pkt)
+{
+    struct ipv4_hdr *ipv4_hdr;
+    uint16_t ipv4_len;
+    unsigned char *pkt_data;
+    int padding_len;
+
+    ipv4_hdr = ipv4_header(pkt);
+    ipv4_len = rte_be_to_cpu_16(ipv4_hdr->total_length);
+    padding_len = pkt->pkt_len - sizeof(struct ether_hdr) - ipv4_len;
+
+    if (padding_len) {
+        pkt_data = rte_pktmbuf_mtod(pkt, unsigned char *);
+        memset(pkt_data + sizeof(struct ether_hdr) + ipv4_len,
+               0x00,
+               padding_len);
+    }
+}
+
+/*
  * Handle the ipv4 pkt:
  *  - if it is a ICMP message addressed to one of our interfaces, answer to it.
  *  - otherwise, process the configuration rules.
@@ -187,6 +241,8 @@ ipv4_handle(struct rte_mbuf *pkt, uint8_t port, struct core *core)
 {
     int ret;
     struct ipv4_hdr *ipv4_hdr;
+
+    fix_nexus9000_padding_bug(pkt);
 
     ipv4_hdr = ipv4_header(pkt);
 

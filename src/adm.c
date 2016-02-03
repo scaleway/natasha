@@ -171,11 +171,11 @@ adm_loop(int s, struct core *cores, int argc, char **argv)
                 return EXIT_FAILURE;
             }
         }
-        // No new command, check if slave cores are still alive
-        else if (events == 0) {
-            check_slaves_alive(&slaves_alive);
-        }
-        else {
+
+        // if slaves aren't alive, quit
+        check_slaves_alive(&slaves_alive);
+
+        if (events) {
             // New client?
             if (FD_ISSET(s, &readfds)) {
                 struct sockaddr_un client;

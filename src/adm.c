@@ -183,25 +183,34 @@ adm_loop(int s, struct core *cores, int argc, char **argv)
                 socklen_t len;
 
                 // Accept
-                if ((cs = accept(s, (struct sockaddr *)&client, &len)) < 0
-                        || fcntl(cs, F_SETFL, O_NONBLOCK) < 0) {
-
+                if ((cs = accept(s, (struct sockaddr *)&client, &len)) < 0) {
                     RTE_LOG(ERR, APP, "Adm server: accept error: %s\n",
                             strerror(errno));
-                }
-                // Too many connections, reject client
-                if (num_clients >= max_clients) {
-                    RTE_LOG(ERR, APP,
-                            "Adm server: reject client (too many connections)\n");
-                    close(cs);
-                }
-                // Append client
-                else {
-                    for (i = 0; i < max_clients; ++i) {
-                        if (clients[i].fd == 0) {
-                            clients[i].fd = cs;
-                            ++num_clients;
-                            break ;
+                } else {
+                    // Too many connections, reject client
+                    if (num_clients >= max_clients) {
+                        RTE_LOG(
+                            ERR, APP,
+                            "Adm server: reject client (too many connections)\n"
+                        );
+                        close(cs);
+                    }
+                    // Set client socket non blocking
+                    else if (fcntl(cs, F_SETFL, O_NONBLOCK) < 0) {
+                        RTE_LOG(
+                            ERR, APP,
+                            "Adm server: reject client (can't ENONBLOCK)\n"
+                        );
+                        close(cs);
+                    }
+                    // Everything ok, append client
+                    else {
+                        for (i = 0; i < max_clients; ++i) {
+                            if (clients[i].fd == 0) {
+                                clients[i].fd = cs;
+                                ++num_clients;
+                                break ;
+                            }
                         }
                     }
                 }
@@ -233,7 +242,7 @@ adm_loop(int s, struct core *cores, int argc, char **argv)
                             disconnect_client(&clients[i]);
                             --num_clients;
                         }
-                        // disconnect
+                        // client disconnection
                         else if (nbread == 0) {
                             disconnect_client(&clients[i]);
                             --num_clients;

@@ -152,8 +152,10 @@ ipv4\.dst_addr  yylval->number = IPV4_DST_ADDR; return NAT_REWRITE_FIELD;
 %%
 
 /*
- * In the case of parsing error, the special rule <<EOF>> is not reached and
- * the files aren't closed.
+ * This function must be called after yyparse() to free resources.
+ *
+ * In case of parsing error, the special rule <<EOF>> is not reached and the
+ * files aren't closed.
  * If the parsing was successful, YY_CURRENT_BUFFER is false and nothing is
  * done.
  */

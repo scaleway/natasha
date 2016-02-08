@@ -64,14 +64,27 @@ run_command(struct client *client, struct core *cores, int argc, char **argv)
         {"stats", command_stats},
     };
     size_t i;
+    int ret;
+    static size_t ncommand = 0;
+
+    ++ncommand;
+    ret = 0;
+
+    dprintf(client->fd, "--- command %lu ---\n", ncommand);
 
     for (i = 0; i < sizeof(commands) / sizeof(*commands); ++i) {
         if (strcmp(commands[i].command, client->buf) == 0) {
-            return commands[i].func(client, cores, argc, argv);
+            ret = commands[i].func(client, cores, argc, argv);
+            break ;
         }
     }
-    dprintf(client->fd, "%s: command not found\n", client->buf);
-    return 0;
+
+    if (i == sizeof(commands) / sizeof(*commands)) {
+        dprintf(client->fd, "%s: command not found\n", client->buf);
+    }
+
+    dprintf(client->fd, "--- end command %lu ---\n", ncommand);
+    return ret;
 }
 
 static int

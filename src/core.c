@@ -189,6 +189,11 @@ port_init(uint8_t port, struct app_config *app_config, struct core *cores)
     uint16_t queue_id;
     struct app_config_port_ip_addr *port_ip_addr;
 
+    if (app_config->ports[port].ip_addresses == NULL) {
+        RTE_LOG(ERR, APP, "Missing configuration for port %i\n", port);
+        return -1;
+    }
+
     /* Configure device */
     ncores = rte_lcore_count();
     // one RX and one TX queue per core, except for the master core

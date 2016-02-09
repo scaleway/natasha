@@ -27,6 +27,9 @@ class NatashaCLI(cmd.Cmd):
                 return False
 
             response = self.stdout.recv(4096)
+            if not response:
+                return True
+
             sys.stdout.write(response)
 
 

@@ -31,13 +31,12 @@ class NatashaCLI(cmd.Cmd):
 
 
 def main():
-    socket_name = '/var/run/natasha.socket'
 
     while True:
-        sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
         try:
-            sock.connect(socket_name)
+            sock.connect(('127.0.0.1', 4242))
         except IOError as exc:
             sys.stderr.write('connect error: %s\n' % exc)
             pass

@@ -4,6 +4,8 @@
 #include <string.h>
 #include <unistd.h>
 
+#include <arpa/inet.h>
+#include <netinet/in.h>
 #include <sys/select.h>
 #include <sys/socket.h>
 #include <sys/un.h>
@@ -179,7 +181,7 @@ adm_loop(int s, struct core *cores, int argc, char **argv)
         if (events < 0) {
             if (errno != EINTR) {
                 RTE_LOG(ERR, APP,
-                        "Adm server: cannot select on adm UNIX socket: %s\n",
+                        "Adm server: cannot select on adm socket: %s\n",
                         strerror(errno));
                 return EXIT_FAILURE;
             }
@@ -286,39 +288,33 @@ int
 adm_server(struct core *cores, int argc, char **argv)
 {
     int s;
-    struct sockaddr_un local;
-    char *socket_path = "/var/run/natasha.socket";
-    size_t len;
+    struct sockaddr_in addr;
+    int yes;
 
-    if (strlen(socket_path) >=
-            sizeof(local.sun_path) / sizeof(*local.sun_path)) {
+    if ((s = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
+        RTE_LOG(ERR, APP, "Cannot create adm socket: %s\n", strerror(errno));
         return EXIT_FAILURE;
     }
 
-    if ((s = socket(AF_UNIX, SOCK_STREAM, 0)) < 0) {
-        RTE_LOG(ERR, APP, "Cannot create adm UNIX socket: %s\n",
+    yes = 1;
+    if (setsockopt(s, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(yes)) < 0) {
+        RTE_LOG(ERR, APP, "Cannot setsockopt adm socket: %s\n",
                 strerror(errno));
         return EXIT_FAILURE;
     }
 
-    local.sun_family = AF_UNIX;
-    strcpy(local.sun_path, socket_path);
+    memset(&addr, 0, sizeof(addr));
+    addr.sin_family = AF_INET;
+    addr.sin_addr.s_addr = inet_addr("127.0.0.1");
+    addr.sin_port = htons(4242);
 
-    if (unlink(local.sun_path) < 0 && errno != ENOENT) {
-        RTE_LOG(ERR, APP, "Cannot unlink existing adm UNIX socket: %s\n",
-                strerror(errno));
-        return EXIT_FAILURE;
-    }
-
-    len = strlen(local.sun_path) + sizeof(local.sun_family);
-
-    if (bind(s, (struct sockaddr *)&local, len) < 0) {
-        RTE_LOG(ERR, APP, "Cannot bind adm UNIX socket: %s\n", strerror(errno));
+    if (bind(s, (struct sockaddr *)&addr, sizeof(addr)) < 0) {
+        RTE_LOG(ERR, APP, "Cannot bind adm socket: %s\n", strerror(errno));
         return EXIT_FAILURE;
     }
 
     if (listen(s, 2) < 0) {
-        RTE_LOG(ERR, APP, "Cannot listen on adm UNIX socket: %s\n",
+        RTE_LOG(ERR, APP, "Cannot listen on adm socket: %s\n",
                 strerror(errno));
         return EXIT_FAILURE;
     }

@@ -20,12 +20,12 @@ eth_stats(uint8_t port, int fd)
     }
     dprintf(fd,
         "Port %d: ipackets=%lu,opackets=%lu,ibytes=%lu,obytes=%lu,ierrors=%lu,"
-        "oerrors=%lu,imissed=%lu,ibadcrc=%lu,ibadlen=%lu,rx_nombuf=%lu\n",
+        "oerrors=%lu,imissed=%lu,rx_nombuf=%lu\n",
         port,
         stats.ipackets, stats.opackets,
         stats.ibytes, stats.obytes,
         stats.ierrors, stats.oerrors,
-        stats.imissed, stats.ibadcrc, stats.ibadlen,
+        stats.imissed,
         stats.rx_nombuf
     );
 

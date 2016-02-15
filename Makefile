@@ -10,17 +10,22 @@ export RTE_SRCDIR=$(abspath src)
 export RTE_OUTPUT=$(abspath build)
 
 
-all:
+# `make` without argument calls the first rule. Call make in src/ to build
+# natasha.
+default:
 	$(MAKE) -C . -f $(RTE_SRCDIR)/Makefile
 
 
-# Dynamically discover unittests
+########################################################
+# Unitests: make test, make run_tests, make build_tests
+########################################################
+
+# Directories names in src/tests/
 TESTS=$(shell find $(RTE_SRCDIR)/tests    \
          -mindepth 1 -maxdepth 1 -type d  \
          -exec basename {} \;)
 
-test:
-	# Building tests...
+build_tests:
 	@for test in $(TESTS); do                               \
 		$(MAKE) -C . -f $(RTE_SRCDIR)/tests/$$test/Makefile \
 			--no-print-directory                            \
@@ -28,7 +33,9 @@ test:
 			UNITTEST=1                                      \
 			build_test                                      \
 	; done
-	# Running tests...
+
+
+run_tests: build_tests
 	@for test in $(TESTS); do                                \
 		sudo $(RTE_OUTPUT)/$$test/test                       \
                   && echo "[OK] $$test" ||                   \
@@ -36,13 +43,19 @@ test:
 	; done
 
 
-# Dynamically discover reports
+test: run_tests
+
+
+########################################################################
+# Performance reports: make build_reports, make run_reports, make report
+########################################################################
+
+# Directories names in src/reports/
 REPORTS=$(shell find $(RTE_SRCDIR)/reports  \
            -mindepth 1 -maxdepth 1 -type d  \
            -exec basename {} \;)
 
-report:
-	# Building reports...
+build_reports:
 	@for report in $(REPORTS); do                               \
 		$(MAKE) -C . -f $(RTE_SRCDIR)/reports/$$report/Makefile \
 			--no-print-directory                                \
@@ -50,9 +63,12 @@ report:
 			UNITTEST=1                                          \
 			build_report                                        \
 	; done
-	# Running reports
+
+run_reports: build_reports
 	@for report in $(REPORTS); do                              \
 		sudo $(RTE_OUTPUT)/$$report/report                     \
                   && echo "[OK] $$report" ||                   \
                            echo "[FAIL] $$report (status=$$?)" \
 	; done
+
+report: run_reports

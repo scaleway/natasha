@@ -15,7 +15,9 @@ ifdef UNITTEST
 CFLAGS += -DUNITTEST
 endif
 
-# CFLAGS += $(WERROR_FLAGS)
+# EXTRA_CFLAGS is defined in unittests and performance reports
+CFLAGS += $(EXTRA_CFLAGS)
+
 
 FLEX_INPUT    = $(RTE_SRCDIR)/parseconfig.lex
 FLEX_OUTPUT_H = $(RTE_OUTPUT)/parseconfig.yy.h

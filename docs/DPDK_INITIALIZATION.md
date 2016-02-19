@@ -328,9 +328,11 @@ each port. Consequently, the first slave sets queue_id=0, the second one
 queue_id=1 and so on.
 
 - **nb_rx_desc**: the number of receive descriptors to allocate for the receive
-ring. We use 128 because that's the value used everywhere in DPDK sample
-applications, but we should find a way to ensure this is a good value, probably
-by checking there are always enough free descriptors.
+ring. Almost everywhere in DPDK sample applications, 128 is used.
+After some benchmarks, we got packet loss during traffic peaks when using 128
+because this buffer size is too small. nb_rx_desc can be up to 4096 but —
+according to guys from Intel on #DPDK @freenode — performances start decreasing
+when this value is too big. We use 1024.
 
 - **socket_id**: the NUMA socket ID of the core.
 
@@ -466,9 +468,8 @@ DPDK documentation of [`rte_eth_tx_queue_setup(
 - **tx_queue_id**: same than rx_queue_id of rte_eth_rx_queue_setup().
 
 - **nb_tx_desc**: the number of transmit descriptors to allocate for the
-transmit ring. We use 256 because that's the value used everywhere in DPDK
-sample applications, but we should find a way to ensure this is a good value,
-probably by checking there are always enough free descriptors.
+transmit ring. Because we retransmit most of the packets we receive, this value
+needs to be at least equal to nb_rx_desc. We use 1024.
 
 - **socket_id**: the NUMA socket ID of the core.
 

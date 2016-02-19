@@ -353,9 +353,11 @@ fields:
     - **rx_free_thresh**: drives the freeing of RX descriptors.
     what it means though. We use 32 (IDKW).
 
-    - **rx_drop_en**: if true, drop packets if not descriptors are available.
-    We use 0, as we don't want to lose packets. I've no idea about what happens
-    in the case there are no descriptors available though.
+    - **rx_drop_en**: If 1, packets are dropped if there is not enough
+    descriptors, in which case port.imissed is incremented (otherwise, if 0,
+    q.q_errors is incremented).
+    After some tests, natasha stopped working when there was not enough
+    descriptors in the case rx_drop_en was 0. Consequently, we use 1.
 
     - **rx_deferred_start**: if true, do not start queue with
     rte_eth_dev_start(). I don't know why we would want to defer the start, so

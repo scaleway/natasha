@@ -235,7 +235,7 @@ port_init(uint8_t port, struct app_config *app_config, struct core *cores)
                 .wthresh = 0,
             },
             .rx_free_thresh = 32,
-            .rx_drop_en = 0,
+            .rx_drop_en = 1,
             .rx_deferred_start = 0,
         };
         static const struct rte_eth_txconf tx_conf = {

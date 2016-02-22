@@ -5,20 +5,16 @@ Configuration format
 --------------------
 
 The natasha configuration file is divided in two parts. The `config` sections
-defines the software configuration:
+defines the software configuration: ports IPs, VLANs, NAT rules, ...
 
 ```
 config {
     port 0 ip 10.2.31.11;
     port 1 ip 212.47.255.91;
 
-    # Also possible:
-    # port 0 vlan 10 ip 10.0.0.0;
-    # or
-    # port 0 ip 10.0.0.0 vlan 10 ip 10.0.0.1 vlan 11 ip 10.0.0.2;
-    #
-    # MTU can be set with:
-    # port 0 mtu 8192 ...
+    # or:
+    # port 0 mtu 8192 vlan 10 ip 10.0.0.0
+    #                 vlan 11 ip 11.0.0.0;
 
     # NAT RULES
     nat rule 10.2.0.2 212.47.255.128;
@@ -26,12 +22,13 @@ config {
 }
 ```
 
-And the `rules` section defines how to transform a packet:
+The `rules` section defines what to do for an incoming packet:
 
 ```
 rules {
 
-    # Rewrite both source and destination
+    # Rewrite both source and destination using NAT rules defined in the config
+    # section
     if (ipv4.src_addr in 10.0.0.0/8 and ipv4.dst_addr in 212.47.0.0/16) {
         nat rewrite ipv4.src_addr;
         nat rewrite ipv4.dst_addr;
@@ -54,6 +51,7 @@ rules {
     # if (vlan 10) { ... }
 
     print;
+    drop; # always drop packets at the end to prevent memory leak
 }
 ```
 
@@ -64,9 +62,9 @@ Behind the scene, a *condition* or an *action* is a function that returns an
 integer. If it returns -1, the following rules are not processed. Such
 functions are qualified as **breaking** in this document.
 
-For instance, the **out** action is breaking. This is why an incoming packet is
-only printed if it is not caught by one of the three `if` statements of the
-configuration example above.
+For instance, the **out** action is breaking. This is why in the previous
+example an incoming packet is only printed if it is not caught by one of the
+three `if` statements.
 
 
 Configuration parsing
@@ -74,12 +72,12 @@ Configuration parsing
 
 A configuration file is parsed with [flex](http://flex.sourceforge.net/) and
 [bison](https://www.gnu.org/software/bison/). The [lex
-file](src/parseconfig.lex) is straightforward: it parses the file and generates
+file](src/parseconfig.lex) is straightforward: it reads the file and generates
 tokens parsed by bison. The [bison file](src/parseconfig.y) is divided in two
 parts:
 
-* the `config` section parsing, which is easy to understand and hack and won't
-  be discussed here.
+* the `config` section parsing, which is easy to understand, so we don't
+  explain it in this document.
 * the `rules` section parsing, which generates an AST.
 
 The AST is stored in the `app_config_node` structure defined in
@@ -106,7 +104,7 @@ struct app_config_node {
 };
 ```
 
-There's nothing better than a schema. The following configuration:
+The following configuration:
 
 ```
 rules {
@@ -145,8 +143,6 @@ ACTION[action=cond_ipv4_src_in_network, data=struct ipv4_network(212.47.0.0/16)]
  |
  |__ ACTION[action=action_out, data=struct out_packet(port 0)]
 ```
-
-Rules in [parseconfig.y](src/parseconfig.y) generate this AST.
 
 
 Configuration execution

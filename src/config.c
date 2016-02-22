@@ -68,11 +68,11 @@ app_config_free(struct app_config *config)
 }
 
 /*
- * Load or reload configuration. If a configuration is already loaded,
- * free it.
+ * Load configuration into `config`.
  */
 int
-app_config_reload(struct app_config *config, int argc, char **argv)
+app_config_load(struct app_config *config, int argc, char **argv,
+                unsigned int socket_id)
 {
     int i;
     char *config_file;
@@ -80,14 +80,13 @@ app_config_reload(struct app_config *config, int argc, char **argv)
     yyscan_t scanner;
     int ret;
 
-    handle = NULL;
+    memset(config, 0, sizeof(*config));
 
     config_file = "/etc/natasha.conf";
 
     // Parse argv. Can't use getopt, since option parsing needs to be
     // reentrant.
     for (i = 1; i < argc; ++i) {
-
         if (strcmp(argv[i], "-f") == 0) {
             if (i == argc - 1) {
                 RTE_LOG(EMERG, APP, "Filename required for -f\n");
@@ -109,12 +108,10 @@ app_config_reload(struct app_config *config, int argc, char **argv)
         return -1;
     }
 
-    app_config_free(config);
-
-    // Parse the configuration file
+    // Parse configuration file
     yylex_init(&scanner);
     yyset_in(handle, scanner);
-    ret = yyparse(scanner, config);
+    ret = yyparse(scanner, config, socket_id);
 
     // Free handle and files opened during parsing
     free_flex_buffers(scanner);
@@ -128,37 +125,51 @@ app_config_reload(struct app_config *config, int argc, char **argv)
     return 0;
 }
 
-extern struct core g_cores[RTE_MAX_LCORE];
-extern int g_argc;
-extern char **g_argv;
-
 /*
- * Ensure configuration is valid, and ask to each worker to reload itself
- * asynchronously.
+ * Reload the configuration of each worker.
  */
 int
 app_config_reload_all(struct core *cores, int argc, char **argv, int out_fd)
 {
-    struct app_config master_config = {};
-    unsigned int i;
+    unsigned int core;
+    struct app_config master_config;
 
-    // check config is valid on master core
-    if (app_config_reload(&master_config, argc, argv) < 0) {
-        dprintf(out_fd, "invalid configuration. not reloaded.\n");
+    // Ensure configuration is valid
+    if (app_config_load(&master_config, argc, argv, SOCKET_ID_ANY) < 0) {
+        dprintf(out_fd, "Unable to load configuration. This is "
+                        "probably due to a syntax error, but you should check "
+                        "server logs. Workers have not been reloaded.\n");
         return -1;
     }
-
-    // Display nat rules
-    if (out_fd > 0) {
-        nat_dump_rules(out_fd, master_config.nat_lookup);
-    }
-
-    // master_config was only used to check configuration, free it
+    nat_dump_rules(out_fd, master_config.nat_lookup);
     app_config_free(&master_config);
 
-    // Ask workers to reload configuration
-    RTE_LCORE_FOREACH_SLAVE(i) {
-        cores[i].need_reload_conf = 1;
+    // Reload workers
+    RTE_LCORE_FOREACH_SLAVE(core) {
+        unsigned int socket_id;
+        struct app_config old_config;
+        struct app_config new_config;
+
+        socket_id = rte_lcore_to_socket_id(core);
+
+        if (app_config_load(&new_config, cores[core].app_argc,
+                            cores[core].app_argv, socket_id) < 0) {
+            dprintf(
+                out_fd,
+                "Core %i: unable to load configuration. Check server logs. "
+                "Following workers are not reloaded.",
+                core
+            );
+            return -1;
+        }
+
+        // Switch to the new configuration
+        rte_rwlock_write_lock(&cores[core].app_config_lock);
+        old_config = cores[core].app_config;
+        cores[core].app_config = new_config;
+        rte_rwlock_write_unlock(&cores[core].app_config_lock);
+
+        app_config_free(&old_config);
     }
     return 0;
 }

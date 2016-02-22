@@ -83,25 +83,22 @@ nat_reset_lookup_table(uint32_t ***t)
 {
     int i, j;
 
-    if (t == NULL) {
-        return ;
-    }
-
-    for (i = 0; i < lkp_fs; ++i) {
-        if (t[i] == NULL) {
-            continue ;
-        }
-
-        for (j = 0; j < lkp_ss; ++j) {
-            if (t[i][j] != NULL) {
-                memset(t[i][j], 0, lkp_ts * sizeof(***t));
+    if (t) {
+        for (i = 0; i < lkp_fs; ++i) {
+            if (t[i]) {
+                for (j = 0; j < lkp_ss; ++j) {
+                    rte_free(t[i][j]);
+                }
+                rte_free(t[i]);
             }
         }
+        rte_free(t);
     }
 }
 
 static uint32_t ***
-add_rule_to_table(uint32_t ***t, uint32_t key, uint32_t value)
+add_rule_to_table(uint32_t ***t, uint32_t key, uint32_t value,
+                  unsigned int socket_id)
 {
     // first byte, second byte, last 2 bytes
     const int fstb = (key >> 24) & 0xff;
@@ -109,17 +106,18 @@ add_rule_to_table(uint32_t ***t, uint32_t key, uint32_t value)
     const int l2b = (key & 0xff00) | (key & 0xff);
 
     if (t == NULL) {
-        t = rte_zmalloc(NULL, lkp_fs * sizeof(*t), 0);
+        t = rte_zmalloc_socket(NULL, lkp_fs * sizeof(*t), 0, socket_id);
         if (t == NULL) { return NULL; }
     }
 
     if (t[fstb] == NULL) {
-        t[fstb] = rte_zmalloc(NULL, lkp_ss * sizeof(**t), 0);
+        t[fstb] = rte_zmalloc_socket(NULL, lkp_ss * sizeof(**t), 0, socket_id);
         if (t[fstb] == NULL) { return NULL ; }
     }
 
     if (t[fstb][sndb] == NULL) {
-        t[fstb][sndb] = rte_zmalloc(NULL, lkp_ts * sizeof(***t), 0);
+        t[fstb][sndb] = rte_zmalloc_socket(NULL, lkp_ts * sizeof(***t), 0,
+                                           socket_id);
         if (t[fstb][sndb] == NULL) { return NULL; }
 
         memset(t[fstb][sndb], 0, lkp_ts * sizeof(***t));
@@ -135,14 +133,15 @@ add_rule_to_table(uint32_t ***t, uint32_t key, uint32_t value)
  *   - -1 on failure
  */
 int
-add_rules_to_table(uint32_t ****nat_lookup, uint32_t int_ip, uint32_t ext_ip)
+add_rules_to_table(uint32_t ****nat_lookup, uint32_t int_ip, uint32_t ext_ip,
+                   unsigned int socket_id)
 {
-    *nat_lookup = add_rule_to_table(*nat_lookup, int_ip, ext_ip);
+    *nat_lookup = add_rule_to_table(*nat_lookup, int_ip, ext_ip, socket_id);
     if (nat_lookup == NULL) {
         return -1;
     }
 
-    *nat_lookup = add_rule_to_table(*nat_lookup, ext_ip, int_ip);
+    *nat_lookup = add_rule_to_table(*nat_lookup, ext_ip, int_ip, socket_id);
     if (nat_lookup == NULL) {
         return -1;
     }

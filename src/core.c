@@ -1,4 +1,4 @@
-#include <signal.h>
+#include <unistd.h>
 
 #include <rte_common.h>
 #include <rte_cycles.h>
@@ -52,6 +52,9 @@ dispatch_packet(struct rte_mbuf *pkt, uint8_t port, struct core *core)
     return 0;
 }
 
+/*
+ * Read packets on port and call dispatch_packet for each of them.
+ */
 static int
 handle_port(uint8_t port, struct core *core)
 {
@@ -66,22 +69,6 @@ handle_port(uint8_t port, struct core *core)
         dispatch_packet(pkts[i], port, core);
     }
     return 0;
-}
-
-int
-reload_conf(struct core *core)
-{
-    int ret;
-
-    ret = app_config_reload(&core->app_config, core->app_argc, core->app_argv);
-    if (ret < 0) {
-        RTE_LOG(CRIT, APP, "Core %i: unable to load configuration\n",
-                core->id);
-    } else {
-        core->need_reload_conf = 0;
-        RTE_LOG(INFO, APP, "Core %i: configuration reloaded!\n", core->id);
-    }
-    return ret;
 }
 
 /*
@@ -105,11 +92,8 @@ main_loop(void *pcore)
         const uint64_t cur_tsc = rte_rdtsc();
         int need_flush;
 
-        if (core->need_reload_conf) {
-            if (reload_conf(core) < 0) {
-                return -1;
-            }
-        }
+        // This lock is required in case core->app_config is reloaded.
+        rte_rwlock_read_lock(&core->app_config_lock);
 
         // We need to flush if the last flush occured more than drain_tsc ago.
         need_flush = (cur_tsc - prev_tsc > drain_tsc) ? 1 : 0;
@@ -118,13 +102,16 @@ main_loop(void *pcore)
         }
 
         for (port = 0; port < eth_dev_count; ++port) {
+            // Read and process incoming packets.
             handle_port(port, core);
 
+            // Write out packets.
             if (need_flush) {
                 tx_flush(port, &core->tx_queues[port]);
             }
-
         }
+
+        rte_rwlock_read_unlock(&core->app_config_lock);
     }
     return 0;
 }
@@ -348,21 +335,40 @@ port_init(uint8_t port, struct app_config *app_config, struct core *cores)
 }
 
 /*
- * Setup ethernet devices, initialize cores and run workers.
+ * Call main_loop for each worker.
  */
 static int
-run_workers(struct core *cores, int argc, char **argv)
+run_workers(struct core *cores)
+{
+    int ret;
+    int core;
+
+    RTE_LCORE_FOREACH_SLAVE(core) {
+        ret = rte_eal_remote_launch(main_loop, &cores[core], core);
+        if (ret < 0) {
+            RTE_LOG(ERR, APP, "Cannot launch worker for core %i\n", core);
+            return -1;
+        }
+    }
+    return 0;
+}
+
+/*
+ * Initialize Ethernet ports and workers.
+ */
+static int
+setup_app(struct core *cores, int argc, char **argv)
 {
     int ret;
 
-    struct app_config app_config = {};
+    struct app_config app_config;
     uint8_t port;
     uint8_t eth_dev_count;
     unsigned ncores;
     unsigned int core;
 
     // Parse configuration
-    if (app_config_reload(&app_config, argc, argv) < 0) {
+    if (app_config_load(&app_config, argc, argv, SOCKET_ID_ANY) < 0) {
         RTE_LOG(ERR, APP, "Unable to load configuration\n");
         return -1;
     }
@@ -398,18 +404,18 @@ run_workers(struct core *cores, int argc, char **argv)
     // Configuration for the master core is only used to setup ports.
     app_config_free(&app_config);
 
-    // Launch workers
+    // Initialize workers
     RTE_LCORE_FOREACH_SLAVE(core) {
         cores[core].id = core;
         cores[core].app_argc = argc;
         cores[core].app_argv = argv;
-        cores[core].need_reload_conf = 1;
+        rte_rwlock_init(&cores[core].app_config_lock);
+        memset(&cores[core].app_config, 0, sizeof(cores[core].app_config));
+    }
 
-        ret = rte_eal_remote_launch(main_loop, &cores[core], core);
-        if (ret < 0) {
-            RTE_LOG(ERR, APP, "Cannot launch worker for core %i\n", core);
-            return -1;
-        }
+    // Load the configuration for each worker
+    if (app_config_reload_all(cores, argc, argv, STDOUT_FILENO) < 0) {
+        return -1;
     }
 
     return 0;
@@ -432,14 +438,13 @@ natasha(int argc, char **argv)
     argc -= ret;
     argv += ret;
 
-    ret = run_workers(cores, argc, argv);
-    if (ret < 0) {
-        rte_exit(EXIT_FAILURE, "Unable to launch workers\n");
+    if (setup_app(cores, argc, argv) < 0) {
+        rte_exit(EXIT_FAILURE, "Unable to setup app\n");
     }
 
-    // If we write to a CLI client when he is disconnected, make write() return
-    // -1 instead of raising SIGPIPE.
-    signal(SIGPIPE, SIG_IGN);
+    if (run_workers(cores) < 0) {
+        rte_exit(EXIT_FAILURE, "Unable to run workers\n");
+    }
 
     return adm_server(cores, argc, argv);
 }

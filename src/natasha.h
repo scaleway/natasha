@@ -2,6 +2,7 @@
 #define CORE_H_
 
 #include <rte_ethdev.h>
+#include <rte_rwlock.h>
 
 /*
  * Logging configuration.
@@ -132,20 +133,9 @@ struct core {
 
     int app_argc;
     char **app_argv;
-    struct app_config app_config;
 
-    // * each worker thread reads need_reload_conf and, if 1, reload its
-    //   configuration, then set it to 0.
-    // * the adm server (in adm.c/command_reload()) sets this variable to 1 for
-    //   each worker thread.
-    //
-    // If command_reload() is called several times, a race condition could
-    // occur. The worst that could happen would be the configuration to be
-    // reloaded less or more times than requested. That's not an issue because
-    // the configuration will always be reloaded at least once. For this
-    // reason, no synchronization mechanism (spinlock, mutex) protects
-    // need_reload_conf.
-    int need_reload_conf;
+    rte_rwlock_t app_config_lock;
+    struct app_config app_config;
 
     struct rx_queue rx_queues[RTE_MAX_ETHPORTS];
     struct tx_queue tx_queues[RTE_MAX_ETHPORTS];
@@ -156,7 +146,8 @@ struct core {
  */
 
 // config.c
-int app_config_reload(struct app_config *config, int argc, char **argv);
+int app_config_load(struct app_config *config, int argc, char **argv,
+                    unsigned int socket_id);
 void app_config_free(struct app_config *config);
 int app_config_reload_all(struct core *cores, int argc, char **argv,
                           int out_fd);

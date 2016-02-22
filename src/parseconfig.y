@@ -20,8 +20,9 @@
 %define api.pure full
 %lex-param   { yyscan_t scanner }
 %parse-param { void *scanner }
-/* Add param "config" to parsing functions */
+/* Add param "config" and "socket_id" to parsing functions */
 %parse-param { struct app_config *config }
+%parse-param { unsigned int socket_id }
 
 %token OOPS
 
@@ -93,17 +94,17 @@
 #include "parseconfig.yy.h"
 
 static void
-yyerror(yyscan_t scanner, struct app_config *config, const char *str)
+yyerror(yyscan_t scanner, struct app_config *config, unsigned int socket_id, const char *str)
 {
     RTE_LOG(EMERG, APP, "Parsing error on line %i: %s\n",
             yyget_lineno(scanner), str);
 }
 
-#define CHECK_PTR(ptr) do {                                         \
-    if ((ptr) == NULL) {                                            \
-        yyerror(scanner, config, "Unable to allocate memory\n");    \
-        YYERROR;                                                    \
-    }                                                               \
+#define CHECK_PTR(ptr) do {                                                    \
+    if ((ptr) == NULL) {                                                       \
+        yyerror(scanner, config, socket_id, "Unable to allocate memory\n");    \
+        YYERROR;                                                               \
+    }                                                                          \
 } while (0)
 
 %}
@@ -139,11 +140,11 @@ config_port:
         struct app_config_port_ip_addr *port_ip;
 
             if ($port >= RTE_MAX_ETHPORTS) {
-                yyerror(scanner, config, "Invalid port number");
+                yyerror(scanner, config, socket_id, "Invalid port number");
                 YYERROR;
             }
 
-        port_ip = rte_zmalloc(NULL, sizeof(*port_ip), 0);
+        port_ip = rte_zmalloc_socket(NULL, sizeof(*port_ip), 0, socket_id);
         CHECK_PTR(port_ip);
 
         port_ip->addr.ip = $ip;
@@ -172,7 +173,7 @@ config_port_extra_ips:
     | config_port_opt_vlan[vlan] TOK_IP IPV4_ADDRESS[ip] config_port_extra_ips[next] {
         struct app_config_port_ip_addr *port_ip;
 
-        port_ip = rte_zmalloc(NULL, sizeof(*port_ip), 0);
+        port_ip = rte_zmalloc_socket(NULL, sizeof(*port_ip), 0, socket_id);
         CHECK_PTR(port_ip);
         port_ip->addr.ip = $ip;
         port_ip->addr.vlan = $vlan;
@@ -185,8 +186,8 @@ config_port_extra_ips:
 config_nat_rule:
     TOK_NAT_RULE IPV4_ADDRESS[from] IPV4_ADDRESS[to] ';'
     {
-        if (add_rules_to_table(&config->nat_lookup, $from, $to) < 0) {
-            yyerror(scanner, config, "Unable to add NAT rule");
+        if (add_rules_to_table(&config->nat_lookup, $from, $to, socket_id) < 0) {
+            yyerror(scanner, config, socket_id, "Unable to add NAT rule");
             YYERROR;
         }
     }
@@ -217,7 +218,7 @@ rules_content:
         else {
             struct app_config_node *node;
 
-            node = rte_zmalloc(NULL, sizeof(*node), 0);
+            node = rte_zmalloc_socket(NULL, sizeof(*node), 0, socket_id);
             CHECK_PTR(node);
 
             node->type = SEQ;
@@ -235,10 +236,10 @@ rules_stmt:
         struct app_config_node *if_node;
         struct app_config_node *cond_node;
 
-        if_node = rte_zmalloc(NULL, sizeof(*if_node), 0);
+        if_node = rte_zmalloc_socket(NULL, sizeof(*if_node), 0, socket_id);
         CHECK_PTR(if_node);
 
-        cond_node = rte_zmalloc(NULL, sizeof(*cond_node), 0);
+        cond_node = rte_zmalloc_socket(NULL, sizeof(*cond_node), 0, socket_id);
         CHECK_PTR(cond_node);
 
         if_node->type = IF;
@@ -263,7 +264,7 @@ cond:
     cond[lhs] TOK_AND cond[rhs] {
         struct app_config_node *node;
 
-        node = rte_zmalloc(NULL, sizeof(*node), 0);
+        node = rte_zmalloc_socket(NULL, sizeof(*node), 0, socket_id);
         CHECK_PTR(node);
 
         node->type = AND;
@@ -275,7 +276,7 @@ cond:
     | cond[lhs] TOK_OR cond[rhs] {
         struct app_config_node *node;
 
-        node = rte_zmalloc(NULL, sizeof(*node), 0);
+        node = rte_zmalloc_socket(NULL, sizeof(*node), 0, socket_id);
         CHECK_PTR(node);
 
         node->type = OR;
@@ -294,10 +295,10 @@ cond_in_network:
         struct app_config_node *node;
         struct ipv4_network *data;
 
-        node = rte_zmalloc(NULL, sizeof(*node), 0);
+        node = rte_zmalloc_socket(NULL, sizeof(*node), 0, socket_id);
         CHECK_PTR(node);
 
-        data = rte_zmalloc(NULL, sizeof(*data), 0);
+        data = rte_zmalloc_socket(NULL, sizeof(*data), 0, socket_id);
         CHECK_PTR(data);
 
         *data = $network;
@@ -320,10 +321,10 @@ cond_vlan:
         struct app_config_node *node;
         int *data;
 
-        node = rte_zmalloc(NULL, sizeof(*node), 0);
+        node = rte_zmalloc_socket(NULL, sizeof(*node), 0, socket_id);
         CHECK_PTR(node);
 
-        data = rte_zmalloc(NULL, sizeof(*data), 0);
+        data = rte_zmalloc_socket(NULL, sizeof(*data), 0, socket_id);
         CHECK_PTR(data);
 
         *data = $vlan;
@@ -348,10 +349,10 @@ action_nat_rewrite:
         struct app_config_node *node;
         int *data;
 
-        node = rte_zmalloc(NULL, sizeof(*node), 0);
+        node = rte_zmalloc_socket(NULL, sizeof(*node), 0, socket_id);
         CHECK_PTR(node);
 
-        data = rte_zmalloc(NULL, sizeof(*data), 0);
+        data = rte_zmalloc_socket(NULL, sizeof(*data), 0, socket_id);
         CHECK_PTR(data);
 
         if ($field == IPV4_SRC_ADDR) {
@@ -373,10 +374,10 @@ action_out:
         struct app_config_node *node;
         struct out_packet *data;
 
-        node = rte_zmalloc(NULL, sizeof(*node), 0);
+        node = rte_zmalloc_socket(NULL, sizeof(*node), 0, socket_id);
         CHECK_PTR(node);
 
-        data = rte_zmalloc(NULL, sizeof(*data), 0);
+        data = rte_zmalloc_socket(NULL, sizeof(*data), 0, socket_id);
         CHECK_PTR(data);
 
         data->port = $port;
@@ -399,7 +400,7 @@ action_print:
     TOK_PRINT {
         struct app_config_node *node;
 
-        node = rte_zmalloc(NULL, sizeof(*node), 0);
+        node = rte_zmalloc_socket(NULL, sizeof(*node), 0, socket_id);
         CHECK_PTR(node);
 
         node->type = ACTION;
@@ -413,7 +414,7 @@ action_drop:
     TOK_DROP {
         struct app_config_node *node;
 
-        node = rte_zmalloc(NULL, sizeof(*node), 0);
+        node = rte_zmalloc_socket(NULL, sizeof(*node), 0, socket_id);
         CHECK_PTR(node);
 
         node->type = ACTION;

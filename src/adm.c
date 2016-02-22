@@ -1,5 +1,6 @@
 #include <errno.h>
 #include <fcntl.h>
+#include <signal.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
@@ -290,6 +291,10 @@ adm_server(struct core *cores, int argc, char **argv)
     int s;
     struct sockaddr_in addr;
     int yes;
+
+    // Make write() return -1 instead of raising SIGPIPE if we write to a
+    // disconnected client.
+    signal(SIGPIPE, SIG_IGN);
 
     if ((s = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
         RTE_LOG(ERR, APP, "Cannot create adm socket: %s\n", strerror(errno));

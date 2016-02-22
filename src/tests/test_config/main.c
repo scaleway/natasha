@@ -51,7 +51,8 @@ main(int argc, char **argv)
         exit(1);
     }
 
-    if (app_config_reload(&app_config, argc - ret, argv + ret) < 0) {
+    if (app_config_load(&app_config, argc - ret, argv + ret,
+                        SOCKET_ID_ANY) < 0) {
         fprintf(stderr, "Unable to load configuration\n");
         exit(1);
     }

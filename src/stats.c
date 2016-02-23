@@ -39,11 +39,10 @@ eth_stats(uint8_t port, int fd)
 
         dprintf(fd,
                 "Core %i RX queue=%d: q_ibytes=%lu,q_ipackets=%lu,q_obytes=%lu,"
-                "q_opackets=%lu,q_errors=%lu,used_descriptors=%i\n",
+                "q_opackets=%lu,q_errors=%lu\n",
                 core, queue_id, stats.q_ibytes[rx_stats_idx],
                 stats.q_ipackets[rx_stats_idx], stats.q_obytes[rx_stats_idx],
-                stats.q_opackets[rx_stats_idx], stats.q_errors[rx_stats_idx],
-                rte_eth_rx_queue_count(port, queue_id));
+                stats.q_opackets[rx_stats_idx], stats.q_errors[rx_stats_idx]);
 
         dprintf(fd,
                 "Core %i TX queue=%d: q_ibytes=%lu,q_ipackets=%lu,q_obytes=%lu,"

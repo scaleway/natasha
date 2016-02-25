@@ -186,9 +186,10 @@ nat_iter(uint32_t ***nat_lookup,
             }
         }
     }
-    return n;
+    // Since each rule is stored twice, one time for each direction, there are
+    // actually n / 2 NAT rules in nat_lookup.
+    return n / 2;
 }
-
 
 static void
 nat_dump_rule(uint32_t from, uint32_t to, void *arg)
@@ -212,4 +213,10 @@ nat_dump_rules(int out_fd, uint32_t ***nat_lookup)
 
     size = nat_iter(nat_lookup, &nat_dump_rule, &out_fd);
     return size;
+}
+
+int
+nat_number_of_rules(uint32_t ***nat_lookup)
+{
+    return nat_iter(nat_lookup, NULL, NULL);
 }

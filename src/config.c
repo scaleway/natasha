@@ -141,8 +141,6 @@ app_config_reload_all(struct core *cores, int argc, char **argv, int out_fd)
                         "server logs. Workers have not been reloaded.\n");
         return -1;
     }
-    nat_dump_rules(out_fd, master_config.nat_lookup);
-    app_config_free(&master_config);
 
     // Reload workers
     RTE_LCORE_FOREACH_SLAVE(core) {
@@ -160,6 +158,7 @@ app_config_reload_all(struct core *cores, int argc, char **argv, int out_fd)
                 "Following workers are not reloaded.",
                 core
             );
+            app_config_free(&master_config);
             return -1;
         }
 
@@ -171,5 +170,9 @@ app_config_reload_all(struct core *cores, int argc, char **argv, int out_fd)
 
         app_config_free(&old_config);
     }
+
+    dprintf(out_fd, "%i NAT rules reloaded\n",
+            nat_number_of_rules(master_config.nat_lookup));
+    app_config_free(&master_config);
     return 0;
 }

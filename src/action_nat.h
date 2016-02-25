@@ -17,5 +17,6 @@ int add_rules_to_table(uint32_t ****nat_lookup,
                        unsigned int socket_id);
 
 int nat_dump_rules(int out_fd, uint32_t ***nat_lookup);
+int nat_number_of_rules(uint32_t ***nat_lookup);
 
 #endif

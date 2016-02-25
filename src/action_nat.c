@@ -149,6 +149,56 @@ add_rules_to_table(uint32_t ****nat_lookup, uint32_t int_ip, uint32_t ext_ip,
     return 0;
 }
 
+static int
+nat_iter(uint32_t ***nat_lookup,
+         void (*func)(uint32_t from, uint32_t to, void *arg),
+         void *data)
+{
+    int i, j, k;
+    uint32_t from, to;
+    size_t n;
+
+    if (nat_lookup == NULL)
+        return 0;
+
+    n = 0;
+    for (i = 0; i < lkp_fs; ++i) {
+        if (nat_lookup[i] == NULL) {
+            continue ;
+        }
+
+        for (j = 0; j < lkp_ss; ++j) {
+            if (nat_lookup[i][j] == NULL) {
+                continue ;
+            }
+
+            for (k = 0; k < lkp_ts; ++k) {
+                if (nat_lookup[i][j][k] == 0) {
+                    continue ;
+                }
+
+                if (func) {
+                    from = IPv4(i, j, (k >> 8) & 0xff, k & 0xff);
+                    to = nat_lookup[i][j][k];
+                    func(from, to, data);
+                }
+                ++n;
+            }
+        }
+    }
+    return n;
+}
+
+
+static void
+nat_dump_rule(uint32_t from, uint32_t to, void *arg)
+{
+    int out_fd = *(int *)arg;
+
+    dprintf(out_fd, IPv4_FMT " -> " IPv4_FMT "\n",
+            IPv4_FMTARGS(from), IPv4_FMTARGS(to));
+}
+
 /*
  * Display rules of the NAT lookup table.
  *
@@ -158,31 +208,8 @@ add_rules_to_table(uint32_t ****nat_lookup, uint32_t int_ip, uint32_t ext_ip,
 int
 nat_dump_rules(int out_fd, uint32_t ***nat_lookup)
 {
-    size_t n;
-    int i, j, k;
+    size_t size;
 
-    dprintf(out_fd, "NAT RULES\n*********\n");
-
-    if (nat_lookup == NULL)
-        return 0;
-
-    n = 0;
-    for (i = 0; i < lkp_fs; ++i) {
-        if (nat_lookup[i] == NULL) { continue ; }
-
-        for (j = 0; j < lkp_ss; ++j) {
-            if (nat_lookup[i][j] == NULL) { continue ; }
-
-            for (k = 0; k < lkp_ts; ++k) {
-                if (nat_lookup[i][j][k] == 0) { continue ; }
-
-                ++n;
-
-                dprintf(out_fd, IPv4_FMT " -> " IPv4_FMT "\n",
-                        IPv4_FMTARGS(IPv4(i, j, (k >> 8) & 0xff, k & 0xff)),
-                        IPv4_FMTARGS(nat_lookup[i][j][k]));
-            }
-        }
-    }
-    return n;
+    size = nat_iter(nat_lookup, &nat_dump_rule, &out_fd);
+    return size;
 }

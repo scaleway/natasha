@@ -154,6 +154,7 @@ int app_config_reload_all(struct core *cores, int argc, char **argv,
 
 // stats.c
 void stats_display(int fd);
+int stats_reset(int fd);
 
 // pkt.c
 uint16_t tx_send(struct rte_mbuf *pkt, uint8_t port, struct tx_queue *queue);

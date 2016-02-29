@@ -28,7 +28,8 @@ command_help(struct client *client, struct core *cores, int argc, char **argv)
             "  exit, quit: close the connection\n"
             "        help: show this message\n"
             "      reload: reload configuration\n"
-            "       stats: print ports and queues statistics\n");
+            "       stats: print ports and queues statistics\n"
+            "       reset: reset statistics\n");
     return 0;
 }
 
@@ -54,6 +55,13 @@ command_stats(struct client *client, struct core *cores, int argc, char **argv)
 }
 
 static int
+command_reset(struct client *client, struct core *cores, int argc, char **argv)
+{
+    stats_reset(client->fd);
+    return 0;
+}
+
+static int
 run_command(struct client *client, struct core *cores, int argc, char **argv)
 {
     struct {
@@ -65,6 +73,7 @@ run_command(struct client *client, struct core *cores, int argc, char **argv)
         {"help", command_help},
         {"reload", command_reload},
         {"stats", command_stats},
+        {"reset", command_reset},
     };
     size_t i;
     int ret;

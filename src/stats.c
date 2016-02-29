@@ -68,3 +68,15 @@ stats_display(int fd)
         eth_stats(port, fd);
     }
 }
+
+int
+stats_reset(int fd)
+{
+    uint8_t port;
+
+    for (port = 0; port < rte_eth_dev_count(); ++port) {
+        rte_eth_stats_reset(port);
+    }
+    dprintf(fd, "Stats reset\n");
+    return 0;
+}

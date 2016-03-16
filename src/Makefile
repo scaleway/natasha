@@ -15,7 +15,7 @@ ifdef UNITTEST
 CFLAGS += -DUNITTEST
 endif
 
-# EXTRA_CFLAGS is defined in unittests and performance reports
+# EXTRA_CFLAGS is defined in unittests
 CFLAGS += $(EXTRA_CFLAGS)
 
 

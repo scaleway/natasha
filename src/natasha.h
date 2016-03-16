@@ -169,6 +169,9 @@ int is_natasha_port_ip(struct app_config *app_config,
 int arp_handle(struct rte_mbuf *pkt, uint8_t port, struct core *core);
 int ipv4_handle(struct rte_mbuf *pkt, uint8_t port, struct core *core);
 
+// adm.c
+int adm_server(struct core *cores, int argc, char **argv);
+
 /*
  * Utility macros.
  */

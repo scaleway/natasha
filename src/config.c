@@ -8,9 +8,8 @@
 #include "natasha.h"
 #include "network_headers.h"
 
-#include "action_nat.h"
-#include "action_out.h"
-#include "cond_network.h"
+#include "actions.h"
+#include "conds.h"
 
 #include "parseconfig.tab.h"
 #include "parseconfig.yy.h"

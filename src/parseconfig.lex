@@ -21,9 +21,10 @@
 
 #include <rte_ip.h>
 
+#include "actions.h"
+#include "conds.h"
 #include "natasha.h"
-#include "action_nat.h"
-#include "cond_network.h"
+
 #include "parseconfig.tab.h"
 %}
 

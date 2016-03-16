@@ -8,7 +8,6 @@
 #include <rte_log.h>
 #include <rte_mempool.h>
 
-#include "adm.h"
 #include "natasha.h"
 
 

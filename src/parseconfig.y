@@ -7,13 +7,9 @@
 
 #include <rte_malloc.h>
 
+#include "actions.h"
+#include "conds.h"
 #include "natasha.h"
-#include "action_drop.h"
-#include "action_log.h"
-#include "action_nat.h"
-#include "action_out.h"
-#include "cond_network.h"
-#include "cond_vlan.h"
 %}
 
 /* Make parser reentrant */

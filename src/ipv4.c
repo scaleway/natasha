@@ -247,19 +247,19 @@ ipv4_handle(struct rte_mbuf *pkt, uint8_t port, struct core *core)
     ipv4_hdr = ipv4_header(pkt);
 
     // TTL exceeded, don't answer and free the packet
-    if (ipv4_hdr->time_to_live <= 1) {
+    if (unlikely(ipv4_hdr->time_to_live <= 1)) {
         return -1;
     }
     ipv4_hdr->time_to_live--;
 
-    if (ipv4_hdr->next_proto_id == IPPROTO_ICMP) {
+    if (unlikely(ipv4_hdr->next_proto_id == IPPROTO_ICMP)) {
         if ((ret = icmp_answer(pkt, port, core)) >= 0) {
             return ret;
         }
     }
 
     // No rules for this packet, free it
-    if (core->app_config.rules == NULL) {
+    if (unlikely(core->app_config.rules == NULL)) {
         return -1;
     }
 

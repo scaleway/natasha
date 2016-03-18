@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <unistd.h>
 
-#include "action_nat.h"
+#include "actions.h"
 #include "natasha.h"
 
 

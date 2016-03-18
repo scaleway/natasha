@@ -45,6 +45,10 @@ app_config_free(struct app_config *config)
 {
     uint8_t i;
 
+    if (config == NULL) {
+        return ;
+    }
+
     // Free ports IP addresses
     for (i = 0; i < sizeof(config->ports) / sizeof(*config->ports); ++i) {
         struct app_config_port_ip_addr *ip;
@@ -64,22 +68,28 @@ app_config_free(struct app_config *config)
 
     // Free packet rules
     config->rules = reset_rules(config->rules);
+
+    rte_free(config);
 }
 
 /*
- * Load configuration into `config`.
+ * Load and return configuration.
  */
-int
-app_config_load(struct app_config *config, int argc, char **argv,
-                unsigned int socket_id)
+struct app_config *
+app_config_load(int argc, char **argv, unsigned int socket_id)
 {
     int i;
+    struct app_config *config;
     char *config_file;
     FILE *handle;
     yyscan_t scanner;
     int ret;
 
-    memset(config, 0, sizeof(*config));
+    config = rte_zmalloc(NULL, sizeof(*config), 0);
+    if (config == NULL) {
+        RTE_LOG(EMERG, APP, "app_config_load zmalloc failed\n");
+        return NULL;
+    }
 
     config_file = "/etc/natasha.conf";
 
@@ -89,14 +99,14 @@ app_config_load(struct app_config *config, int argc, char **argv,
         if (strcmp(argv[i], "-f") == 0) {
             if (i == argc - 1) {
                 RTE_LOG(EMERG, APP, "Filename required for -f\n");
-                return -1;
+                goto error;
             }
             config_file = argv[i + 1];
             ++i;
             continue ;
         } else {
             RTE_LOG(EMERG, APP, "Unknown option: %s\n", argv[i]);
-            return -1;
+            goto error;
         }
     }
 
@@ -104,7 +114,7 @@ app_config_load(struct app_config *config, int argc, char **argv,
     if (handle == NULL) {
         RTE_LOG(EMERG, APP, "Fail to load %s: %s\n",
                 config_file, strerror(errno));
-        return -1;
+        goto error;
     }
 
     // Parse configuration file
@@ -118,10 +128,14 @@ app_config_load(struct app_config *config, int argc, char **argv,
     yylex_destroy(scanner);
 
     if (ret != 0) {
-        return -1;
+        goto error;
     }
 
-    return 0;
+    return config;
+
+error:
+    rte_free(config);
+    return NULL;
 }
 
 /*
@@ -131,10 +145,11 @@ int
 app_config_reload_all(struct core *cores, int argc, char **argv, int out_fd)
 {
     unsigned int core;
-    struct app_config master_config;
+    struct app_config *master_config;
 
     // Ensure configuration is valid
-    if (app_config_load(&master_config, argc, argv, SOCKET_ID_ANY) < 0) {
+    master_config = app_config_load(argc, argv, SOCKET_ID_ANY);
+    if (master_config == NULL) {
         dprintf(out_fd, "Unable to load configuration. This is "
                         "probably due to a syntax error, but you should check "
                         "server logs. Workers have not been reloaded.\n");
@@ -144,20 +159,23 @@ app_config_reload_all(struct core *cores, int argc, char **argv, int out_fd)
     // Reload workers
     RTE_LCORE_FOREACH_SLAVE(core) {
         unsigned int socket_id;
-        struct app_config old_config;
-        struct app_config new_config;
+        struct app_config *old_config;
+        struct app_config *new_config;
 
         socket_id = rte_lcore_to_socket_id(core);
 
-        if (app_config_load(&new_config, cores[core].app_argc,
-                            cores[core].app_argv, socket_id) < 0) {
+
+        new_config = app_config_load(cores[core].app_argc,
+                                     cores[core].app_argv,
+                                     socket_id);
+        if (new_config == NULL) {
             dprintf(
                 out_fd,
                 "Core %i: unable to load configuration. Check server logs. "
                 "Following workers are not reloaded.",
                 core
             );
-            app_config_free(&master_config);
+            app_config_free(master_config);
             return -1;
         }
 
@@ -166,12 +184,11 @@ app_config_reload_all(struct core *cores, int argc, char **argv, int out_fd)
         old_config = cores[core].app_config;
         cores[core].app_config = new_config;
         rte_rwlock_write_unlock(&cores[core].app_config_lock);
-
-        app_config_free(&old_config);
+        app_config_free(old_config);
     }
 
     dprintf(out_fd, "%i NAT rules reloaded\n",
-            nat_number_of_rules(master_config.nat_lookup));
-    app_config_free(&master_config);
+            nat_number_of_rules(master_config->nat_lookup));
+    app_config_free(master_config);
     return 0;
 }

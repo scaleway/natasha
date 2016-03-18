@@ -85,7 +85,7 @@ icmp_answer(struct rte_mbuf *pkt, uint8_t port, struct core *core)
     ipv4_hdr = ipv4_header(pkt);
     dst_ip = rte_be_to_cpu_32(ipv4_hdr->dst_addr);
 
-    if (!is_natasha_ip(&core->app_config, dst_ip, VLAN_ID(pkt))) {
+    if (!is_natasha_ip(core->app_config, dst_ip, VLAN_ID(pkt))) {
         return -1;
     }
 
@@ -259,14 +259,14 @@ ipv4_handle(struct rte_mbuf *pkt, uint8_t port, struct core *core)
     }
 
     // No rules for this packet, free it
-    if (unlikely(core->app_config.rules == NULL)) {
+    if (unlikely(core->app_config->rules == NULL)) {
         return -1;
     }
 
     // process_rules returns -1 if it encounters a breaking rule (eg.
     // action_out or action_drop). We don't want to return -1 because the
     // caller function – dispatch_patcher() in core.c – would free pkt.
-    (void)process_rules(core->app_config.rules, pkt, port, core);
+    (void)process_rules(core->app_config->rules, pkt, port, core);
 
     return 0;
 }

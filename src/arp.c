@@ -24,7 +24,7 @@ arp_request(struct rte_mbuf *pkt, uint8_t port, struct core *core)
             VLAN_ID(pkt)
     );
 
-    if (!is_natasha_port_ip(&core->app_config, target_ip, VLAN_ID(pkt), port)) {
+    if (!is_natasha_port_ip(core->app_config, target_ip, VLAN_ID(pkt), port)) {
         RTE_LOG(DEBUG, APP,
                 "Port %d: " IPv4_FMT " is not my IP address on vlan %d,"
                 " ARP request ignored\n", port, IPv4_FMTARGS(target_ip),

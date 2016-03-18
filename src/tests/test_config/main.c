@@ -43,7 +43,7 @@ int
 main(int argc, char **argv)
 {
     int ret;
-    struct app_config app_config = {};
+    struct app_config *app_config;
     size_t i;
 
     if ((ret = rte_eal_init(argc, argv)) < 0) {
@@ -51,21 +51,24 @@ main(int argc, char **argv)
         exit(1);
     }
 
-    if (app_config_load(&app_config, argc - ret, argv + ret,
-                        SOCKET_ID_ANY) < 0) {
+    app_config = app_config_load(argc - ret, argv + ret, SOCKET_ID_ANY);
+    if (app_config == NULL) {
         fprintf(stderr, "Unable to load configuration\n");
         exit(1);
     }
 
-    if (app_config.nat_lookup == NULL) {
+    if (app_config->nat_lookup == NULL) {
         printf("EXPECT: no NAT rules\n");
     }
 
     // Dump ports
-    for (i = 0; i < sizeof(app_config.ports) / sizeof(*app_config.ports); ++i) {
+    for (i = 0;
+         i < sizeof(app_config->ports) / sizeof(*app_config->ports);
+         ++i) {
+
         struct app_config_port_ip_addr *port_ip_addr;
 
-        port_ip_addr = app_config.ports[i].ip_addresses;
+        port_ip_addr = app_config->ports[i].ip_addresses;
         while (port_ip_addr) {
             printf("EXPECT: port %lu = " IPv4_FMT " vlan %i\n",
                    i,
@@ -78,13 +81,13 @@ main(int argc, char **argv)
 
     // Dump NAT rules
     fflush(stdout);
-    nat_dump_rules(STDOUT_FILENO, app_config.nat_lookup);
+    nat_dump_rules(STDOUT_FILENO, app_config->nat_lookup);
 
-    if (app_config.rules == NULL) {
+    if (app_config->rules == NULL) {
         printf("EXPECT: no packet rules\n");
     }
 
-    dump_rules(app_config.rules, 0);
+    dump_rules(app_config->rules, 0);
 
     return 0;
 }

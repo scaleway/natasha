@@ -63,7 +63,7 @@ int
 main(int argc, char **argv)
 {
     int ret;
-    struct app_config app_config = {};
+    struct app_config *app_config;
     size_t i;
     int initial_fds, final_fds;
     size_t initial_freesize, final_freesize;
@@ -80,11 +80,12 @@ main(int argc, char **argv)
     initial_freesize = heap_freesize();
 
     for (i = 0; i < 100; ++i) {
-        if (app_config_load(&app_config, argc, argv, SOCKET_ID_ANY) < 0) {
+        app_config = app_config_load(argc, argv, SOCKET_ID_ANY);
+        if (app_config == NULL) {
             fprintf(stderr, "Unable to load configuration\n");
             exit(1);
         }
-        app_config_free(&app_config);
+        app_config_free(app_config);
     }
 
     if (initial_fds != (final_fds = number_open_descs()))  {

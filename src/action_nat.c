@@ -62,13 +62,13 @@ action_nat_rewrite(struct rte_mbuf *pkt, uint8_t port, struct core *core, void *
 
     if (field_to_rewrite == IPV4_SRC_ADDR) {
         return lookup_and_rewrite(
-            pkt, core->app_config.nat_lookup,
+            pkt, core->app_config->nat_lookup,
             rte_be_to_cpu_32(ipv4_hdr->src_addr),
             &ipv4_hdr->src_addr
         );
     } else {
         return lookup_and_rewrite(
-            pkt, core->app_config.nat_lookup,
+            pkt, core->app_config->nat_lookup,
             rte_be_to_cpu_32(ipv4_hdr->dst_addr),
             &ipv4_hdr->dst_addr
         );

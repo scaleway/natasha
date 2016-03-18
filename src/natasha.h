@@ -135,7 +135,7 @@ struct core {
     char **app_argv;
 
     rte_rwlock_t app_config_lock;
-    struct app_config app_config;
+    struct app_config *app_config;
 
     struct rx_queue rx_queues[RTE_MAX_ETHPORTS];
     struct tx_queue tx_queues[RTE_MAX_ETHPORTS];
@@ -146,8 +146,8 @@ struct core {
  */
 
 // config.c
-int app_config_load(struct app_config *config, int argc, char **argv,
-                    unsigned int socket_id);
+struct app_config *app_config_load(int argc, char **argv,
+                                   unsigned int socket_id);
 void app_config_free(struct app_config *config);
 int app_config_reload_all(struct core *cores, int argc, char **argv,
                           int out_fd);

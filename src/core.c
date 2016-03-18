@@ -360,14 +360,15 @@ setup_app(struct core *cores, int argc, char **argv)
 {
     int ret;
 
-    struct app_config app_config;
+    struct app_config *app_config;
     uint8_t port;
     uint8_t eth_dev_count;
     unsigned ncores;
     unsigned int core;
 
     // Parse configuration
-    if (app_config_load(&app_config, argc, argv, SOCKET_ID_ANY) < 0) {
+    app_config = app_config_load(argc, argv, SOCKET_ID_ANY);
+    if (app_config == NULL) {
         RTE_LOG(ERR, APP, "Unable to load configuration\n");
         return -1;
     }
@@ -393,7 +394,7 @@ setup_app(struct core *cores, int argc, char **argv)
     // Configure ports
     for (port = 0; port < eth_dev_count; ++port) {
         RTE_LOG(INFO, APP, "Configuring port %i...\n", port);
-        ret = port_init(port, &app_config, cores);
+        ret = port_init(port, app_config, cores);
         if (ret < 0) {
             RTE_LOG(ERR, APP, "Cannot initialize network ports\n");
             return -1;
@@ -401,7 +402,7 @@ setup_app(struct core *cores, int argc, char **argv)
     }
 
     // Configuration for the master core is only used to setup ports.
-    app_config_free(&app_config);
+    app_config_free(app_config);
 
     // Initialize workers
     RTE_LCORE_FOREACH_SLAVE(core) {

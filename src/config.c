@@ -180,11 +180,18 @@ app_config_reload_all(struct core *cores, int argc, char **argv, int out_fd)
         }
 
         // Switch to the new configuration
-        rte_rwlock_write_lock(&cores[core].app_config_lock);
         old_config = cores[core].app_config;
         cores[core].app_config = new_config;
-        rte_rwlock_write_unlock(&cores[core].app_config_lock);
-        app_config_free(old_config);
+
+        // If there's an old config (ie. we're in the context of a reload, and
+        // not at application startup), wait until the new configuration is
+        // used and free the old config.
+        if (old_config) {
+            while (new_config->used == 0) {
+                continue ;
+            }
+            app_config_free(old_config);
+        }
     }
 
     dprintf(out_fd, "%i NAT rules reloaded\n",

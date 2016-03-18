@@ -80,6 +80,12 @@ static const int lkp_ss = 256; // 2^8
 static const int lkp_ts = 65536; // 2^16
 
 struct app_config {
+
+    // If 1, this configuration has been used at least once and in case of
+    // reload (see config.c/app_config_relaod_all), old configuration is no
+    // longer used by the core and can safely be freed.
+    volatile int used;
+
     struct app_config_port ports[RTE_MAX_ETHPORTS];
 
     /*
@@ -134,7 +140,6 @@ struct core {
     int app_argc;
     char **app_argv;
 
-    rte_rwlock_t app_config_lock;
     struct app_config *app_config;
 
     struct rx_queue rx_queues[RTE_MAX_ETHPORTS];

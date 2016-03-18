@@ -91,8 +91,12 @@ main_loop(void *pcore)
         const uint64_t cur_tsc = rte_rdtsc();
         int need_flush;
 
-        // This lock is required in case core->app_config is reloaded.
-        rte_rwlock_read_lock(&core->app_config_lock);
+        // At any time, config.c/app_config_reload_all() can update
+        // core->app_config to load a new configuration. The reload function
+        // needs to free the old configuration, and for that it waits us to
+        // mark the new configuration as used, which implies we no longer
+        // reference the old config.
+        core->app_config->used = 1;
 
         // We need to flush if the last flush occured more than drain_tsc ago.
         need_flush = (cur_tsc - prev_tsc > drain_tsc) ? 1 : 0;
@@ -109,8 +113,6 @@ main_loop(void *pcore)
                 tx_flush(port, &core->tx_queues[port]);
             }
         }
-
-        rte_rwlock_read_unlock(&core->app_config_lock);
     }
     return 0;
 }
@@ -409,7 +411,6 @@ setup_app(struct core *cores, int argc, char **argv)
         cores[core].id = core;
         cores[core].app_argc = argc;
         cores[core].app_argv = argv;
-        rte_rwlock_init(&cores[core].app_config_lock);
         memset(&cores[core].app_config, 0, sizeof(cores[core].app_config));
     }
 

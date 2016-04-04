@@ -80,17 +80,9 @@ main_loop(void *pcore)
     uint8_t eth_dev_count;
     struct core *core = pcore;
 
-    uint64_t prev_tsc;
-    const uint64_t drain_tsc =
-        (rte_get_tsc_hz() + US_PER_S - 1) / US_PER_S * BURST_RX_DRAIN_US;
-
     eth_dev_count = rte_eth_dev_count();
-    prev_tsc = rte_rdtsc();
 
     while (1) {
-        const uint64_t cur_tsc = rte_rdtsc();
-        int need_flush;
-
         // At any time, config.c/app_config_reload_all() can update
         // core->app_config to load a new configuration. The reload function
         // needs to free the old configuration, and for that it waits us to
@@ -98,20 +90,12 @@ main_loop(void *pcore)
         // reference the old config.
         core->app_config->used = 1;
 
-        // We need to flush if the last flush occured more than drain_tsc ago.
-        need_flush = (cur_tsc - prev_tsc > drain_tsc) ? 1 : 0;
-        if (need_flush) {
-            prev_tsc = cur_tsc;
-        }
-
         for (port = 0; port < eth_dev_count; ++port) {
             // Read and process incoming packets.
             handle_port(port, core);
 
             // Write out packets.
-            if (need_flush) {
-                tx_flush(port, &core->tx_queues[port]);
-            }
+            tx_flush(port, &core->tx_queues[port]);
         }
     }
     return 0;

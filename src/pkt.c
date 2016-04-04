@@ -58,6 +58,10 @@ tx_flush(uint8_t port, struct tx_queue *queue)
     uint16_t sent;
     uint16_t n;
 
+    if (!queue->len) {
+        return 0;
+    }
+
     sent = rte_eth_tx_burst(port, queue->id, queue->pkts, queue->len);
 
     // rte_eth_tx_burst() is responsible to free the sent packets. We need to

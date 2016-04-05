@@ -404,9 +404,9 @@ setup_app(struct core *cores, int argc, char **argv)
     ncores = rte_lcore_count();
     if (ncores < 2) {
         RTE_LOG(ERR, APP,
-                "Invalid coremask. The master core being used for statistics, "
-                "at least one other core needs to be activated for "
-                "networking\n");
+                "Invalid coremask. The master core being used for the "
+                "administration server, at least one other core needs "
+                "to be activated for networking\n");
         return -1;
     }
 

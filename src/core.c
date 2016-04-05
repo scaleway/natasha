@@ -393,8 +393,6 @@ setup_app(struct core *cores, int argc, char **argv)
     // Initialize workers
     RTE_LCORE_FOREACH_SLAVE(core) {
         cores[core].id = core;
-        cores[core].app_argc = argc;
-        cores[core].app_argv = argv;
         memset(&cores[core].app_config, 0, sizeof(cores[core].app_config));
     }
 

@@ -137,9 +137,6 @@ struct tx_queue {
 struct core {
     int id;
 
-    int app_argc;
-    char **app_argv;
-
     struct app_config *app_config;
 
     struct rx_queue rx_queues[RTE_MAX_ETHPORTS];

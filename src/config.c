@@ -164,11 +164,7 @@ app_config_reload_all(struct core *cores, int argc, char **argv, int out_fd)
 
         socket_id = rte_lcore_to_socket_id(core);
 
-
-        new_config = app_config_load(cores[core].app_argc,
-                                     cores[core].app_argv,
-                                     socket_id);
-        if (new_config == NULL) {
+        if ((new_config = app_config_load(argc, argv, socket_id)) == NULL) {
             dprintf(
                 out_fd,
                 "Core %i: unable to load configuration. Check server logs. "

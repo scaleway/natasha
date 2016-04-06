@@ -135,10 +135,10 @@ config_port:
     config_port_extra_ips[next_ips] ';' {
         struct app_config_port_ip_addr *port_ip;
 
-            if ($port >= RTE_MAX_ETHPORTS) {
-                yyerror(scanner, config, socket_id, "Invalid port number");
-                YYERROR;
-            }
+        if ($port >= RTE_MAX_ETHPORTS) {
+            yyerror(scanner, config, socket_id, "Invalid port number");
+            YYERROR;
+        }
 
         port_ip = rte_zmalloc_socket(NULL, sizeof(*port_ip), 0, socket_id);
         CHECK_PTR(port_ip);

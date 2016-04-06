@@ -11,6 +11,10 @@
 #include "natasha.h"
 
 
+#define BE_ETHER_TYPE_IPv4 0x0008 /**< IPv4 Protocol. */
+#define BE_ETHER_TYPE_IPv6 0xDD86 /**< IPv6 Protocol. */
+#define BE_ETHER_TYPE_ARP  0x0608 /**< Arp Protocol. */
+
 static int
 dispatch_packet(struct rte_mbuf *pkt, uint8_t port, struct core *core)
 {
@@ -19,21 +23,21 @@ dispatch_packet(struct rte_mbuf *pkt, uint8_t port, struct core *core)
     int status;
 
     eth_hdr = rte_pktmbuf_mtod(pkt, struct ether_hdr *);
-    eth_type = rte_be_to_cpu_16(eth_hdr->ether_type);
+    eth_type = eth_hdr->ether_type;
 
     status = -1;
 
     switch (eth_type) {
 
-    case ETHER_TYPE_ARP:
-        status = arp_handle(pkt, port, core);
-        break ;
-
-    case ETHER_TYPE_IPv4:
+    case BE_ETHER_TYPE_IPv4:
         status = ipv4_handle(pkt, port, core);
         break ;
 
-    case ETHER_TYPE_IPv6:
+    case BE_ETHER_TYPE_ARP:
+        status = arp_handle(pkt, port, core);
+        break ;
+
+    case BE_ETHER_TYPE_IPv6:
     default:
         RTE_LOG(DEBUG, APP, "Unhandled proto %x on port %d\n", eth_type, port);
         break ;

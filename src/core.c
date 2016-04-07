@@ -144,7 +144,7 @@ port_init(uint8_t port, struct app_config *app_config, struct core *cores)
             .hw_vlan_strip=1,
             .hw_vlan_extend=0,
             .hw_strip_crc=1,
-            .enable_scatter=1,
+            .enable_scatter=0,
             .enable_lro=0,
         },
         .txmode = {

@@ -13,9 +13,13 @@
 #include "natasha.h"
 
 
-#define BE_ETHER_TYPE_IPv4 0x0008 /**< IPv4 Protocol. */
-#define BE_ETHER_TYPE_IPv6 0xDD86 /**< IPv6 Protocol. */
-#define BE_ETHER_TYPE_ARP  0x0608 /**< Arp Protocol. */
+/* We cannot use rte_cpu_to_be_16() on a constant in a switch/case */
+#if RTE_BYTE_ORDER == RTE_LITTLE_ENDIAN
+#define _htons(x) ((uint16_t)((((x) & 0x00ffU) << 8) | (((x) & 0xff00U) >> 8)))
+#else
+#define _htons(x) (x)
+#endif
+
 
 static int
 dispatch_packet(struct rte_mbuf *pkt, uint8_t port, struct core *core)
@@ -30,16 +34,15 @@ dispatch_packet(struct rte_mbuf *pkt, uint8_t port, struct core *core)
     status = -1;
 
     switch (eth_type) {
-
-    case BE_ETHER_TYPE_IPv4:
+    case _htons(ETHER_TYPE_IPv4):
         status = ipv4_handle(pkt, port, core);
         break ;
 
-    case BE_ETHER_TYPE_ARP:
+    case _htons(ETHER_TYPE_ARP):
         status = arp_handle(pkt, port, core);
         break ;
 
-    case BE_ETHER_TYPE_IPv6:
+    case _htons(ETHER_TYPE_IPv6):
     default:
         RTE_LOG(DEBUG, APP, "Unhandled proto %x on port %d\n", eth_type, port);
         break ;

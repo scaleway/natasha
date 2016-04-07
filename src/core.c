@@ -11,11 +11,6 @@
 #include "natasha.h"
 
 
-// Flush TX queues after ~BURST_RX_DRAIN_US microseconds.
-static const int
-BURST_RX_DRAIN_US = 100; // 0.001ms
-
-
 static int
 dispatch_packet(struct rte_mbuf *pkt, uint8_t port, struct core *core)
 {

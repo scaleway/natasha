@@ -7,6 +7,7 @@
 #include <rte_ethdev.h>
 #include <rte_log.h>
 #include <rte_mempool.h>
+#include <rte_prefetch.h>
 
 #include "natasha.h"
 
@@ -63,10 +64,16 @@ handle_port(uint8_t port, struct core *core)
     nb_pkts = rte_eth_rx_burst(port, core->rx_queues[port].id,
                                pkts, sizeof(pkts) / sizeof(*pkts));
 
-    for (i = 0; i < nb_pkts; ++i) {
+    if (unlikely(nb_pkts == 0)) {
+        return 0;
+    }
+
+    for (i = 0; i < nb_pkts - 1; ++i) {
+        rte_prefetch0(rte_pktmbuf_mtod(pkts[i + 1], void *));
         dispatch_packet(pkts[i], port, core);
     }
-    return 0;
+    dispatch_packet(pkts[i], port, core);
+    return i;
 }
 
 /*

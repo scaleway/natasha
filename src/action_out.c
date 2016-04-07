@@ -19,7 +19,7 @@ action_out(struct rte_mbuf *pkt, uint8_t port, struct core *core, void *data)
 
     // Offload IPv4 checksum
     ipv4_hdr->hdr_checksum = 0;
-    pkt->ol_flags |= PKT_TX_IP_CKSUM;
+    ipv4_hdr->hdr_checksum = rte_ipv4_cksum(ipv4_hdr);
 
     // Rewrite out vlan
     pkt->vlan_tci = out->vlan;

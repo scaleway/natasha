@@ -147,9 +147,9 @@ port_init(uint8_t port, struct app_config *app_config, struct core *cores)
             .mq_mode=ETH_MQ_RX_RSS,
             .jumbo_frame=(app_config->ports[port].mtu > ETHER_MAX_LEN),
             .max_rx_pkt_len=app_config->ports[port].mtu,
-            .header_split=1,
-            .split_hdr_size=64,
-            .hw_ip_checksum=1,
+            .header_split=0,
+            .split_hdr_size=0,
+            .hw_ip_checksum=0,
             .hw_vlan_filter=1,
             .hw_vlan_strip=1,
             .hw_vlan_extend=0,
@@ -234,7 +234,7 @@ port_init(uint8_t port, struct app_config *app_config, struct core *cores)
             },
             .tx_rs_thresh = 0,
             .tx_free_thresh = 0,
-            .txq_flags = 0,
+            .txq_flags = ETH_TXQ_FLAGS_NOMULTSEGS,
             .tx_deferred_start = 0
         };
 
@@ -255,7 +255,7 @@ port_init(uint8_t port, struct app_config *app_config, struct core *cores)
             /* number of elements in the pool */
             8191, // = 2^13 - 1
             /* size of each element */
-            RTE_MBUF_DEFAULT_DATAROOM,
+            RTE_PKTMBUF_HEADROOM + app_config->ports[port].mtu,
             /* cache size */
             0,
             /* private data size */

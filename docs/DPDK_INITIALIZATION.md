@@ -123,18 +123,17 @@ documentation. For natasha, we use the following values:
             processing.
         ```
 
-        We use 1, to improve performances, but we need to run a benchmark to
-        verify performances are really improved.
+        We use 0 because the vectorized PMD needs headers to be contiguous to
+        the data.
 
 [accelerating_network_processing]: https://www.kernel.org/doc/ols/2005/ols2005v1-pages-289-296.pdf
 
-    - **header_split_size**: only used if header_split is enabled. A typical
-    UDP header is 52 bytes long (Ethernet header (24 bytes) + IPv4 header (20
-    bytes) + TCP header (20 bytes)). A typical TCP header is 64 bytes long
-    (Ethernet header + IPv4 header + TCP header (20 bytes)). We use the biggest
-    value between the two, ie. 64.
+    - **header_split_size**: only used if header_split is enabled. Since
+      header_split = 0, we use 0.
     - **hw_ip_checksum**: whether IP/UDP/TCP checksum offload is enable or not.
-    We use 1, because we want our NIC to compute checksums.
+    If we use 1, the ixgbe driver uses the non-optimized receive function
+    ixgbe_recv_pkts_lro_bulk_alloc(). We use 0 to use the more optimized
+    receive function ixgbe_recv_scattered_pkts_vec().
     - **hw_vlan_filter**: if 1, only accept traffic from VLANs configured with
     [rte_eth_dev_vlan_filter()] [doc_eth_dev_configure]. If 0, accept any
     encapsulated packet. The natasha configuration file specifies the VLANs to
@@ -400,7 +399,8 @@ self-explanatory fields have been omitted):
                 (RTE_MBUF_DEFAULT_DATAROOM + RTE_PKTMBUF_HEADROOM)
     ```
 
-    Because we desactivated jumbo frames, we use RTE_MBUF_DEFAULT_DATAROOM.
+    We don't want packets to be segmented, so we use enough space to store a
+    whole packet: MTU + RTE_PKTMBUF_HEADROOM.
 
 [rte_mbuf.h]: http://dpdk.org/browse/dpdk/tree/lib/librte_mbuf/rte_mbuf.h
 
@@ -550,7 +550,7 @@ fields:
         - ETH_TXQ_FLAGS_NOXSUMUDP: to disable UDP checksum offload
         - ETH_TXQ_FLAGS_NOXSUMTCP: to disable TCP checksum offload
 
-    I don't think we need any of these flags, so we use 0.
+    We use ETH_TXQ_FLAGS_NOMULTSEGS as a packet can't be segmented.
 
     - **tx_deferred_start**: if true, do not start queue with
     rte_eth_dev_start(). I don't know why we would want to defer the start, so

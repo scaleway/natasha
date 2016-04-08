@@ -121,7 +121,7 @@ struct rx_queue {
     uint16_t id;
 };
 
-#define MAX_TX_BURST 64
+#define MAX_TX_BURST 32
 // Network transmit queue.
 struct tx_queue {
     uint16_t id;

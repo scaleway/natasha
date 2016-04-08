@@ -57,7 +57,7 @@ dispatch_packet(struct rte_mbuf *pkt, uint8_t port, struct core *core)
 static int
 handle_port(uint8_t port, struct core *core)
 {
-    struct rte_mbuf *pkts[64];
+    struct rte_mbuf *pkts[32];
     uint16_t i;
     uint16_t nb_pkts;
 

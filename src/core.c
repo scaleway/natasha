@@ -181,7 +181,7 @@ port_init(uint8_t port, struct app_config *app_config, struct core *cores)
             .hw_vlan_filter=1,
             .hw_vlan_strip=1,
             .hw_vlan_extend=0,
-            .hw_strip_crc=1,
+            .hw_strip_crc=0,
             .enable_scatter=0,
             .enable_lro=0,
         },
@@ -197,7 +197,7 @@ port_init(uint8_t port, struct app_config *app_config, struct core *cores)
             .rss_conf = {
                 .rss_key=NULL,
                 .rss_key_len=0,
-                .rss_hf = ETH_RSS_PROTO_MASK,
+                .rss_hf = ETH_RSS_IP,
             },
         },
     };
@@ -214,6 +214,15 @@ port_init(uint8_t port, struct app_config *app_config, struct core *cores)
     ncores = rte_lcore_count();
     // one RX and one TX queue per core, except for the master core
     nqueues = ncores - 1;
+
+    if (ncores > 1) {
+        eth_conf.rx_adv_conf.rss_conf.rss_key = NULL;
+        /* Compute RSS hash only on IP fields */
+        eth_conf.rx_adv_conf.rss_conf.rss_hf = ETH_RSS_IP;
+    } else {
+        eth_conf.rx_adv_conf.rss_conf.rss_key = NULL;
+        eth_conf.rx_adv_conf.rss_conf.rss_hf = 0;
+    }
 
     ret = rte_eth_dev_configure(port, nqueues, nqueues, &eth_conf);
     if (ret < 0) {
@@ -260,8 +269,8 @@ port_init(uint8_t port, struct app_config *app_config, struct core *cores)
                 .hthresh = 0,
                 .wthresh = 0,
             },
-            .tx_rs_thresh = 0,
-            .tx_free_thresh = 0,
+            .tx_rs_thresh = 32,
+            .tx_free_thresh = 32,
             .txq_flags = ETH_TXQ_FLAGS_NOMULTSEGS,
             .tx_deferred_start = 0
         };

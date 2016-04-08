@@ -99,7 +99,9 @@ main_loop(void *pcore)
         for (port = 0; port < eth_dev_count; ++port) {
             // Read and process incoming packets.
             handle_port(port, core);
+        }
 
+        for (port = 0; port < eth_dev_count; ++port) {
             // Write out packets.
             tx_flush(port, &core->tx_queues[port]);
         }

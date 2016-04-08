@@ -17,7 +17,7 @@ action_out(struct rte_mbuf *pkt, uint8_t port, struct core *core, void *data)
     rte_eth_macaddr_get(port, &eth_hdr->s_addr);
     ether_addr_copy(&out->next_hop, &eth_hdr->d_addr);
 
-    // Offload IPv4 checksum
+    // Compute IPv4 checksum
     ipv4_hdr->hdr_checksum = 0;
     ipv4_hdr->hdr_checksum = rte_ipv4_cksum(ipv4_hdr);
 

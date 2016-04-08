@@ -31,9 +31,9 @@ icmp_echo(struct rte_mbuf *pkt, uint8_t port, struct core *core)
     ipv4_hdr->src_addr = ipv4_hdr->dst_addr;
     ipv4_hdr->dst_addr = tmp_ip;
 
-    // Offload IPV4 checksum computation
+    // Compute IPv4 checksum
     ipv4_hdr->hdr_checksum = 0;
-    pkt->ol_flags |= PKT_TX_IP_CKSUM;
+    ipv4_hdr->hdr_checksum = rte_ipv4_cksum(ipv4_hdr);
 
     // Compute ICMP checksum, RFC 1071
     icmp_hdr->icmp_cksum = 0;

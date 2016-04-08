@@ -254,7 +254,7 @@ port_init(uint8_t port, struct app_config *app_config, struct core *cores)
     queue_id = 0;
     RTE_LCORE_FOREACH_SLAVE(core) {
         static const int rx_ring_size = 1024;
-        static const int tx_ring_size = 1024;
+        static const int tx_ring_size = 4096;
 
         static const struct rte_eth_rxconf rx_conf = {
             .rx_thresh = {

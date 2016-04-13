@@ -139,7 +139,7 @@ struct core {
 
     struct rx_queue rx_queues[RTE_MAX_ETHPORTS];
     struct tx_queue tx_queues[RTE_MAX_ETHPORTS];
-};
+} __rte_cache_aligned;
 
 /*
  * Prototypes.

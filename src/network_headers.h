@@ -17,7 +17,7 @@ eth_header(struct rte_mbuf *pkt)
     return rte_pktmbuf_mtod((pkt), struct ether_hdr *);
 }
 
-#define L2_HEADER(proto, type)                                                  \
+#define L3_HEADER(proto, type)                                                  \
     static inline type *                                                        \
     proto ## _header(struct rte_mbuf *pkt)                                      \
     {                                                                           \
@@ -27,7 +27,7 @@ eth_header(struct rte_mbuf *pkt)
         return (type *)p;                                                       \
     }
 
-#define L3_HEADER(proto, type)                              \
+#define L4_HEADER(proto, type)                              \
     static inline type *                                    \
     proto ## _header(struct rte_mbuf *pkt)                  \
     {                                                       \
@@ -37,12 +37,12 @@ eth_header(struct rte_mbuf *pkt)
         return (type *)((unsigned char *)p + sizeof(*p));   \
     }
 
-L2_HEADER(arp, struct arp_hdr);
-L2_HEADER(ipv4, struct ipv4_hdr);
+L3_HEADER(arp, struct arp_hdr);
+L3_HEADER(ipv4, struct ipv4_hdr);
 
-L3_HEADER(icmp, struct icmp_hdr);
-L3_HEADER(tcp, struct tcp_hdr);
-L3_HEADER(udp, struct udp_hdr);
+L4_HEADER(icmp, struct icmp_hdr);
+L4_HEADER(tcp, struct tcp_hdr);
+L4_HEADER(udp, struct udp_hdr);
 
 #undef L2_HEADER
 #undef L3_HEADER

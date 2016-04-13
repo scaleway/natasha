@@ -113,7 +113,7 @@ main_loop(void *pcore)
     return 0;
 }
 
-#define MBUF_SIZE 9000 + RTE_PKTMBUF_HEADROOM
+#define MBUF_SIZE 9216 + RTE_PKTMBUF_HEADROOM
 
 static uint32_t align32pow2(uint32_t x)
 {

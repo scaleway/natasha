@@ -115,6 +115,18 @@ main_loop(void *pcore)
 
 #define MBUF_SIZE 9000 + RTE_PKTMBUF_HEADROOM
 
+static uint32_t align32pow2(uint32_t x)
+{
+
+    x--;
+    x |= x >> 1;
+    x |= x >> 2;
+    x |= x >> 4;
+    x |= x >> 8;
+    x |= x >> 16;
+    return x + 1;
+}
+
 /***********
  * nat_mbuf_pool_create - Create mbuf packet pool.
  */
@@ -128,7 +140,7 @@ nat_mbuf_pool_create(const char *type, uint8_t pid, uint8_t queue_id,
 
     /* create the mbuf pool */
     mp = rte_pktmbuf_pool_create(name,
-                                 nb_mbufs,
+                                 align32pow2(nb_mbufs),
                                  cache_size,
                                  0, /* priv size */
                                  MBUF_SIZE,

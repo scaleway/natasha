@@ -113,7 +113,7 @@ main_loop(void *pcore)
     return 0;
 }
 
-#define MBUF_SIZE 9000
+#define MBUF_SIZE 9000 + RTE_PKTMBUF_HEADROOM
 
 /***********
  * nat_mbuf_pool_create - Create mbuf packet pool.

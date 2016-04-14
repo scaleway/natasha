@@ -121,7 +121,7 @@ ipv4\.dst_addr  yylval->number = IPV4_DST_ADDR; return NAT_REWRITE_FIELD;
     if ((newfile = fopen(yytext, "r")) != NULL) {
         // * Create a new buffer for the included file
         // * Push it on top of the buffers stack and make it active
-        //   (yyin = newfile after yypush_buffer_state()).
+        //   (after yypush_buffer_state(), yyin becomes "newfile").
         state = yy_create_buffer(newfile, YY_BUF_SIZE, yyscanner);
         yypush_buffer_state(state, yyscanner);
 

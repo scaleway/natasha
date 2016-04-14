@@ -118,19 +118,20 @@ ipv4\.dst_addr  yylval->number = IPV4_DST_ADDR; return NAT_REWRITE_FIELD;
     YY_BUFFER_STATE state;
 
     // We're in the include context. Open the file to include.
-    if ((newfile = fopen(yytext, "r")) == NULL) {
+    if ((newfile = fopen(yytext, "r")) != NULL) {
+        // * Create a new buffer for the included file
+        // * Push it on top of the buffers stack and make it active
+        //   (yyin = newfile after yypush_buffer_state()).
+        state = yy_create_buffer(newfile, YY_BUF_SIZE, yyscanner);
+        yypush_buffer_state(state, yyscanner);
+
+    } else {
         fprintf(stderr, "Unable to !include %s: %s\n",
                 yytext, strerror(errno));
-        return OOPS;
     }
 
-    // * Create a new buffer for the included file
-    // * Push it on top of the buffers stack and make it active
-    //   (yyin = newfile after yypush_buffer_state()).
-    state = yy_create_buffer(newfile, YY_BUF_SIZE, yyscanner);
-    yypush_buffer_state(state, yyscanner);
-
-    // Start the default context with the new active buffer.
+    // Start the default context with the new active buffer (if include
+    // succeeds), or continue with the current buffer.
     BEGIN(INITIAL);
 }
 

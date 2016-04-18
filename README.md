@@ -26,8 +26,5 @@ More concrete examples are given in the [documentation](docs/CONFIGURATION.md).
 TODO
 ====
 
-- Check DPDK initialization: constants have been randomly used everywhere. We
-  need to check they are optimal and ideally configurable.
 - Return ICMP response if TTL is exceeded.
-- stats: show mempools utilization.
 - check return value of yylex_init in app_config_load.

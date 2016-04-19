@@ -7,6 +7,7 @@ ifeq ($(NOT_FIRST_CALL),1)
 APP ?= nat
 
 CFLAGS += -O3 -g
+CFLAGS += -flto
 CFLAGS += -Wall
 CFLAGS += -I$(RTE_OUTPUT) # to include bison and flex headers
 CFLAGS += -I$(RTE_SRCDIR) # so bison and flex C files can include headers

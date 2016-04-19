@@ -13,14 +13,6 @@
 #include "natasha.h"
 
 
-/* We cannot use rte_cpu_to_be_16() on a constant in a switch/case */
-#if RTE_BYTE_ORDER == RTE_LITTLE_ENDIAN
-#define _htons(x) ((uint16_t)((((x) & 0x00ffU) << 8) | (((x) & 0xff00U) >> 8)))
-#else
-#define _htons(x) (x)
-#endif
-
-
 static int
 dispatch_packet(struct rte_mbuf *pkt, uint8_t port, struct core *core)
 {
@@ -32,6 +24,22 @@ dispatch_packet(struct rte_mbuf *pkt, uint8_t port, struct core *core)
     eth_type = eth_hdr->ether_type;
 
     status = -1;
+
+    // We could convert eth_type to host byte order with
+    //
+    //      eth_type = rte_be_to_cpu_16(eth_type)
+    //
+    // and compare against little endian numbers, but the swap instruction is a
+    // bottleneck: comparing eth_type against big endian numbers improves
+    // performances a lot (+100 000 pps).
+    //
+    // We can't call rte_cpu_to_be_16() in a switch/case (compiler raises "case
+    // label does not reduce to an integer constant"), hence the define.
+    #if RTE_BYTE_ORDER == RTE_LITTLE_ENDIAN
+    #define _htons(x) ((((x) & 0x00ffU) << 8) | (((x) & 0xff00U) >> 8))
+    #else
+    #define _htons(x) (x)
+    #endif
 
     switch (eth_type) {
     case _htons(ETHER_TYPE_IPv4):

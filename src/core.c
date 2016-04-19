@@ -121,53 +121,6 @@ main_loop(void *pcore)
     return 0;
 }
 
-#define MBUF_SIZE 9216 + RTE_PKTMBUF_HEADROOM
-
-static uint32_t align32pow2(uint32_t x)
-{
-
-    x--;
-    x |= x >> 1;
-    x |= x >> 2;
-    x |= x >> 4;
-    x |= x >> 8;
-    x |= x >> 16;
-    return x + 1;
-}
-
-/***********
- * nat_mbuf_pool_create - Create mbuf packet pool.
- */
-static struct rte_mempool *
-nat_mbuf_pool_create(const char *type, uint8_t pid, uint8_t queue_id,
-                     uint32_t nb_mbufs, int socket_id, int cache_size){
-    struct rte_mempool *mp;
-    char name[RTE_MEMZONE_NAMESIZE];
-
-    snprintf(name, sizeof(name), "%-12s%u:%u", type, pid, queue_id);
-
-    /* create the mbuf pool */
-    mp = rte_pktmbuf_pool_create(name,
-                                 align32pow2(nb_mbufs),
-                                 cache_size,
-                                 0, /* priv size */
-                                 MBUF_SIZE,
-                                 socket_id);
-    if (mp == NULL)
-        RTE_LOG(ERR, APP,
-                "Cannot create mbuf pool (%s) port %d, "
-                "queue %d, nb_mbufs %d, socket_id %d: %s",
-                name,
-                pid,
-                queue_id,
-                nb_mbufs,
-                socket_id,
-                rte_strerror(errno));
-
-    return mp;
-}
-
-
 /*
  * Initialize a network port and its network queues.
  *
@@ -299,6 +252,7 @@ port_init(uint8_t port, struct app_config *app_config, struct core *cores)
         };
 
         struct rte_mempool *mempool;
+        char mempool_name[RTE_MEMZONE_NAMESIZE];
         int socket;
         const int rx_stats_idx = queue_id;
         const int tx_stats_idx = queue_id + ncores - 1;
@@ -306,9 +260,16 @@ port_init(uint8_t port, struct app_config *app_config, struct core *cores)
         // NUMA socket of this processor
         socket = rte_lcore_to_socket_id(core);
 
-        mempool = nat_mbuf_pool_create("rx",
-                                        port, queue_id, 8192,
-                                        socket, 512);
+        snprintf(mempool_name, sizeof(mempool_name), "%-12s%u:%u", "rx", port, queue_id);
+
+        mempool = rte_pktmbuf_pool_create(
+            mempool_name,
+            8192,                           // nb elements
+            512,                            // cache size
+            0,                              // priv size
+            9216 + RTE_PKTMBUF_HEADROOM,    // data room size
+            socket                          // socket id
+        );
         if (!mempool) {
             RTE_LOG(ERR, APP, "Port %i: unable to create mempool: %s\n",
                     port, rte_strerror(rte_errno));

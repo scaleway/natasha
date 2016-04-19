@@ -427,9 +427,6 @@ mb_pool.
                 vlan stripping, ...
       byte 160: mbuf payload
 
-
-[rte_mbuf.h]: http://dpdk.org/browse/dpdk/tree/lib/librte_mbuf/rte_mbuf.h
-
     - **cache_size**: this value corresponds to the number of elements reserved
       for each core when a mempool is used by multiple producers and/or
       consumers. If this value is not 0, cores don't have to use the shared

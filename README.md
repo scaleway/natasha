@@ -23,6 +23,16 @@ if (ipv4.dst_addr in 10.0.0.0/8
 More concrete examples are given in the [documentation](docs/CONFIGURATION.md).
 
 
+License
+=======
+
+Natasha is Free Software (learn more:
+http://www.gnu.org/philosophy/free-sw.html).
+
+Natasha is released under the GPLv3 License. Please read the [COPYING](COPYING)
+file for details.
+
+
 TODO
 ====
 

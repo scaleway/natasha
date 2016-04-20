@@ -118,7 +118,11 @@ app_config_load(int argc, char **argv, unsigned int socket_id)
     }
 
     // Parse configuration file
-    yylex_init(&scanner);
+    if (yylex_init(&scanner)) {
+        fclose(handle);
+        goto error;
+    }
+
     yyset_in(handle, scanner);
     ret = yyparse(scanner, config, socket_id);
 

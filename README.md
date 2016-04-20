@@ -27,4 +27,3 @@ TODO
 ====
 
 - Return ICMP response if TTL is exceeded.
-- check return value of yylex_init in app_config_load.

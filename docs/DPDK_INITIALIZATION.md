@@ -51,7 +51,9 @@ documentation. For natasha, we use the following values:
 [doc_eth_conf]: http://dpdk.org/doc/api/structrte__eth__conf.html
 
 - **link_speed**: Ethernet device link speed. We use 0, for autonegociation.
+
 - **link_duplex**: Half or full duplex. We use 0, for autonegociation.
+
 - **rx_mode**, which is a structure with the following fields:
 
     - **mq_mode**: specify the method to use to route packets to multiple
@@ -93,8 +95,10 @@ documentation. For natasha, we use the following values:
     - **jumbo_frame**: whether we enable or not jumbo frames. We use 1 if the
        interface MTU configured in natasha.conf is bigger than ETHER_MAX_LEN,
        otherwise 0.
+
     - **max_rx_pkt_len**: only used if jumbo_frame enabled. We use the
       interface MTU, configured in natasha.conf (default 1500).
+
     - **header_split**: whether we should split headers or not, as explained
       in [this document] [accelerating_network_processing]. In short, if true:
 

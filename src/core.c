@@ -121,98 +121,13 @@ main_loop(void *pcore)
     return 0;
 }
 
-/*
- * Initialize a network port and its network queues.
- *
- * For each logical non-master core activated, we setup a RX and a TX queue. We
- * also collect queues statistics at indexes <lcore idx> for the RX queue, and
- * <lcore idx + number of cores> for the TX queue.
- *
- * Example with the slave cores 3, 4 and 5 activated:
- *
- * Core 3: RX Queue 0 (stats idx=0), TX Queue 0 (stats idx=3)
- * Core 4: RX Queue 1 (stats idx=1), TX Queue 1 (stats idx=4)
- * Core 5: RX Queue 2 (stats idx=2), TX Queue 2 (stats idx=5)
- *
- * DPDK initialization parameters documentation is available in
- * docs/DPDK_INITIALIZATION.md.
- */
 static int
-port_init(uint8_t port, struct app_config *app_config, struct core *cores)
+setup_queues(uint8_t port, struct core *cores, unsigned int ncores)
 {
     int ret;
 
-    unsigned int ncores;
-    uint16_t nqueues;
-    struct rte_eth_conf eth_conf = {
-        .link_speed=0,
-        .link_duplex=0,
-        .rxmode = {
-            .mq_mode=ETH_MQ_RX_RSS,
-            .jumbo_frame=(app_config->ports[port].mtu > ETHER_MAX_LEN),
-            .max_rx_pkt_len=app_config->ports[port].mtu,
-            .header_split=0,
-            .split_hdr_size=0,
-            .hw_ip_checksum=0,
-            .hw_vlan_filter=1,
-            .hw_vlan_strip=1,
-            .hw_vlan_extend=0,
-            .hw_strip_crc=1,
-            .enable_scatter=0,
-            .enable_lro=0,
-        },
-        .txmode = {
-            .mq_mode=ETH_MQ_TX_NONE,
-            .pvid=0,
-            .hw_vlan_reject_tagged=0,
-            .hw_vlan_reject_untagged=0,
-            .hw_vlan_insert_pvid=0,
-        },
-        .lpbk_mode=0,
-        .rx_adv_conf = {
-            .rss_conf = {
-                .rss_key=NULL,
-                .rss_key_len=0,
-                .rss_hf=ETH_RSS_IP,
-            },
-        },
-    };
-    unsigned int core;
     uint16_t queue_id;
-    struct app_config_port_ip_addr *port_ip_addr;
-
-    if (app_config->ports[port].ip_addresses == NULL) {
-        RTE_LOG(ERR, APP, "Missing configuration for port %i\n", port);
-        return -1;
-    }
-
-    /* Configure device */
-    ncores = rte_lcore_count();
-    // one RX and one TX queue per core, except for the master core
-    nqueues = ncores - 1;
-
-    ret = rte_eth_dev_configure(port, nqueues, nqueues, &eth_conf);
-    if (ret < 0) {
-        RTE_LOG(ERR, APP, "Failed to configure ethernet device port %i\n",
-                port);
-        return ret;
-    }
-
-    // Accept traffic for VLANs
-    port_ip_addr = app_config->ports[port].ip_addresses;
-    while (port_ip_addr) {
-
-        if (port_ip_addr->addr.vlan &&
-            rte_eth_dev_vlan_filter(port, port_ip_addr->addr.vlan, 1) < 0) {
-
-            RTE_LOG(ERR, APP,
-                    "Failed to filter traffic on vlan %i for port %i\n",
-                    port_ip_addr->addr.vlan, port);
-            return -1;
-        }
-
-        port_ip_addr = port_ip_addr->next;
-    }
+    unsigned int core;
 
     /* Configure queues */
     queue_id = 0;
@@ -226,19 +141,20 @@ port_init(uint8_t port, struct app_config *app_config, struct core *cores)
                 .hthresh = 8,
                 .wthresh = 0,
             },
-            .rx_free_thresh = 32,
-            .rx_drop_en = 0,
+            .rx_free_thresh    = 32,
+            .rx_drop_en        = 0,
             .rx_deferred_start = 0,
         };
+
         static const struct rte_eth_txconf tx_conf = {
             .tx_thresh = {
                 .pthresh = 32,
                 .hthresh = 0,
                 .wthresh = 0,
             },
-            .tx_rs_thresh = 32,
-            .tx_free_thresh = 32,
-            .txq_flags = ETH_TXQ_FLAGS_NOMULTSEGS,
+            .tx_rs_thresh      = 32,
+            .tx_free_thresh    = 32,
+            .txq_flags         = ETH_TXQ_FLAGS_NOMULTSEGS,
             .tx_deferred_start = 0
         };
 
@@ -251,7 +167,7 @@ port_init(uint8_t port, struct app_config *app_config, struct core *cores)
         // NUMA socket of this processor
         socket = rte_lcore_to_socket_id(core);
 
-        snprintf(mempool_name, sizeof(mempool_name), "%-12s%u:%u", "rx", port, queue_id);
+        snprintf(mempool_name, sizeof(mempool_name), "%u:%u", port, queue_id);
 
         mempool = rte_pktmbuf_pool_create(
             mempool_name,
@@ -316,8 +232,109 @@ port_init(uint8_t port, struct app_config *app_config, struct core *cores)
 
         ++queue_id;
     }
+    return 0;
+}
 
-    /* Start device */
+/*
+ * Initialize a network port and its network queues.
+ *
+ * For each logical non-master core activated, we setup a RX and a TX queue. We
+ * also collect queues statistics at indexes <lcore idx> for the RX queue, and
+ * <lcore idx + number of cores> for the TX queue.
+ *
+ * Example with the slave cores 3, 4 and 5 activated:
+ *
+ * Core 3: RX Queue 0 (stats idx=0), TX Queue 0 (stats idx=3)
+ * Core 4: RX Queue 1 (stats idx=1), TX Queue 1 (stats idx=4)
+ * Core 5: RX Queue 2 (stats idx=2), TX Queue 2 (stats idx=5)
+ *
+ * DPDK initialization parameters documentation is available in
+ * docs/DPDK_INITIALIZATION.md.
+ */
+static int
+setup_port(uint8_t port, struct app_config *app_config, struct core *cores)
+{
+    int ret;
+
+    unsigned int ncores;
+    uint16_t nqueues;
+    struct rte_eth_conf eth_conf = {
+        .link_speed  = 0,
+        .link_duplex = 0,
+        .rxmode = {
+            .mq_mode        = ETH_MQ_RX_RSS,
+            .jumbo_frame    = (app_config->ports[port].mtu > ETHER_MAX_LEN),
+            .max_rx_pkt_len = app_config->ports[port].mtu,
+            .header_split   = 0,
+            .split_hdr_size = 0,
+            .hw_ip_checksum = 0,
+            .hw_vlan_filter = 1,
+            .hw_vlan_strip  = 1,
+            .hw_vlan_extend = 0,
+            .hw_strip_crc   = 1,
+            .enable_scatter = 0,
+            .enable_lro     = 0,
+        },
+        .txmode = {
+            .mq_mode                 = ETH_MQ_TX_NONE,
+            .pvid                    = 0,
+            .hw_vlan_reject_tagged   = 0,
+            .hw_vlan_reject_untagged = 0,
+            .hw_vlan_insert_pvid     = 0,
+        },
+        .lpbk_mode=0,
+        .rx_adv_conf  =  {
+            .rss_conf  =  {
+                .rss_key     = NULL,
+                .rss_key_len = 0,
+                .rss_hf      = ETH_RSS_IP,
+            },
+        },
+    };
+
+    struct app_config_port_ip_addr *port_ip_addr;
+
+    if (app_config->ports[port].ip_addresses == NULL) {
+        RTE_LOG(ERR, APP, "Missing configuration for port %i\n", port);
+        return -1;
+    }
+
+    ncores = rte_lcore_count();
+
+    // One RX and one TX queue per core, except for the master core
+    nqueues = ncores - 1;
+
+    ret = rte_eth_dev_configure(port, nqueues, nqueues, &eth_conf);
+    if (ret < 0) {
+        RTE_LOG(ERR, APP, "Failed to configure ethernet device port %i\n",
+                port);
+        return ret;
+    }
+
+    // Accept traffic for VLANs
+    port_ip_addr = app_config->ports[port].ip_addresses;
+    while (port_ip_addr) {
+
+        if (port_ip_addr->addr.vlan &&
+            rte_eth_dev_vlan_filter(port, port_ip_addr->addr.vlan, 1) < 0) {
+
+            RTE_LOG(ERR, APP,
+                    "Failed to filter traffic on vlan %i for port %i\n",
+                    port_ip_addr->addr.vlan, port);
+            return -1;
+        }
+
+        port_ip_addr = port_ip_addr->next;
+    }
+
+    // Configure network queues
+    ret = setup_queues(port, cores, ncores);
+    if (ret < 0) {
+        RTE_LOG(ERR, APP, "Port %i: unable to setup network queues\n", port);
+        return ret;
+    }
+
+    // Start device
     ret = rte_eth_dev_start(port);
     if (ret < 0) {
         RTE_LOG(ERR, APP, "Port %i: unable to start device\n", port);
@@ -388,7 +405,7 @@ setup_app(struct core *cores, int argc, char **argv)
     // Configure ports
     for (port = 0; port < eth_dev_count; ++port) {
         RTE_LOG(INFO, APP, "Configuring port %i...\n", port);
-        ret = port_init(port, app_config, cores);
+        ret = setup_port(port, app_config, cores);
         if (ret < 0) {
             RTE_LOG(ERR, APP, "Cannot initialize network ports\n");
             return -1;

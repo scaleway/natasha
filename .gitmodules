@@ -1,0 +1,3 @@
+[submodule "vendor/libjit"]
+	path = vendor/libjit
+	url = git://git.savannah.gnu.org/libjit.git

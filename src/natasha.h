@@ -28,27 +28,15 @@
 // Forward declaration. Defined under "Workers and queues configuration".
 struct core;
 
-// Network port.
-struct ip_vlan {
-    uint32_t ip;
-    int vlan;
-};
-
 struct app_config_port {
     int mtu;
     struct app_config_port_ip_addr {
-        struct ip_vlan addr;
+        struct ip_vlan {
+            uint32_t ip;
+            int vlan;
+        } addr;
         struct app_config_port_ip_addr *next;
     } *ip_addresses;
-};
-
-// A condition, to specify whether an action should be processed or not.
-struct app_config_rule_cond {
-    int (*f)(struct rte_mbuf *pkt,
-             uint8_t port,
-             struct core *core,
-             void *data);
-    void *params;
 };
 
 // See docs/CONFIGURATION.md.

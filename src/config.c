@@ -5,6 +5,8 @@
 #include <rte_ip.h>
 #include <rte_malloc.h>
 
+#include <jit/jit.h>
+
 #include "natasha.h"
 #include "network_headers.h"
 
@@ -19,25 +21,108 @@
 void free_flex_buffers(yyscan_t scanner);
 
 
-static struct app_config_node *
-reset_rules(struct app_config_node *root)
+/*
+ * Returns the JIT signature of actions_* and cond_* functions, ie. a function
+ * that takes four params (pkt, port, core, data) and returns an int.
+ *
+ * The caller needs to free jit_type_free(signature).
+ */
+static jit_type_t
+get_natasha_sig()
 {
-    if (!root) {
-        return NULL;
+    jit_type_t signature;
+    jit_type_t params[] = {
+        jit_type_void_ptr,
+        jit_type_uint,
+        jit_type_void_ptr,
+        jit_type_void_ptr
+    };
+
+    signature = jit_type_create_signature(
+        jit_abi_cdecl,                    // abi
+        jit_type_int,                     // return type
+        params,                           // params
+        sizeof(params) / sizeof(*params), // num params
+        1                                 // incref
+    );
+
+    return signature;
+}
+
+/*
+ * Call a cond_* or a action_* function exported by natasha.
+ */
+jit_value_t
+call_natasha(jit_function_t jit_function,
+             int (*func)(struct rte_mbuf *, uint8_t, struct core *, void *),
+             void *data,
+             size_t datasize)
+{
+    jit_type_t signature;
+    jit_value_t ret;
+    jit_value_t jit_args[4];
+    jit_value_t jit_data;
+
+    // Get the JIT signature of func, which takes four arguments.
+    signature = get_natasha_sig();
+
+    if (!data) {
+        // Create NULL pointer.
+        jit_data = jit_value_create_nint_constant(jit_function,
+                                                  jit_type_void_ptr, 0);
+    } else {
+        jit_value_t jit_datasize;
+        size_t i;
+
+        // Create a JIT constant to hold datasize.
+        jit_datasize = jit_value_create_nint_constant(jit_function,
+                                                      jit_type_uint, datasize);
+        // Allocate enough memory on the stack to hold data.
+        jit_data = jit_insn_alloca(jit_function, jit_datasize);
+        // Copy data in jit_data byte per byte.
+        for (i = 0; i < datasize; ++i) {
+            jit_insn_store_relative(
+                jit_function,
+                jit_data,
+                i,
+                jit_value_create_nint_constant(jit_function, jit_type_ubyte,
+                                               ((char *)data)[i])
+            );
+        }
     }
 
-    if (root->left) {
-        reset_rules(root->left);
-    }
+    jit_args[0] = jit_value_get_param(jit_function, 0);
+    jit_args[1] = jit_value_get_param(jit_function, 1);
+    jit_args[2] = jit_value_get_param(jit_function, 2);
+    jit_args[3] = jit_data;
 
-    if (root->right) {
-        reset_rules(root->right);
-    }
+    // Call func.
+    ret = jit_insn_call_native(
+        jit_function,                         // jit function
+        NULL,                                 // name
+        func,                                 // native func ptr
+        signature,                            // native func signature
+        jit_args,                             // arguments for jit function
+        sizeof(jit_args) / sizeof(*jit_args), // arguments size
+        JIT_CALL_NOTHROW                      // do not optimize
+    );
 
-    rte_free(root->data);
-    rte_free(root);
+    jit_type_free(signature);
 
-    return NULL;
+    // ret = call ret
+    // if (ret < 0) { return ret; }
+    // -1 = terminal action
+    jit_label_t after_return = jit_label_undefined;
+
+    jit_value_t zero = jit_value_create_nint_constant(jit_function, jit_type_uint, 0);
+    jit_value_t is_terminal_rule = jit_insn_lt(jit_function, ret, zero);
+
+    jit_insn_branch_if_not(jit_function, is_terminal_rule, &after_return);
+
+    jit_insn_return(jit_function, ret);
+    jit_insn_label(jit_function, &after_return);
+
+    return ret;
 }
 
 void
@@ -67,9 +152,82 @@ app_config_free(struct app_config *config)
     nat_reset_lookup_table(config->nat_lookup);
 
     // Free packet rules
-    config->rules = reset_rules(config->rules);
+    //config->rules = reset_rules(config->rules);
 
     rte_free(config);
+}
+
+static int
+parse_config(yyscan_t scanner, struct app_config *config,
+             unsigned int socket_id)
+{
+    // XXX: check return values
+    jit_context_t context;
+    jit_type_t signature;
+    jit_function_t process_pkt;
+
+    jit_type_t params[] = {
+        jit_type_void_ptr, // struct rte_mbuf *pkt
+        jit_type_uint, // uint8_t port
+        jit_type_void_ptr // struct core *core
+    };
+
+    // Create a context to hold the JIT's primary state.
+    context = jit_context_create();
+
+    // Lock the context while we build and compile the function.
+    jit_context_build_start(context);
+
+    // Signature of the JIT function to process packets.
+    signature = jit_type_create_signature(
+        jit_abi_cdecl,                    // abi
+        jit_type_int,                     // return type
+        params,                           // params
+        sizeof(params) / sizeof(*params), // num params
+        1                                 // incref
+    );
+    jit_value_t drop_ret;
+
+    process_pkt = jit_function_create(context, signature);
+    jit_type_free(signature);
+
+    // Use flex/bison to parse natasha.conf.
+    //
+    // When yyparse returns:
+    // - `config` is updated to contain the application configuration (ports IP
+    //   addresses, ...) as specified in the "config" section of natasha.conf.
+    // - `process_pkt` is updated to contain the libjit'ed function of what to
+    //    do for each packet, as specified by the "rules" section of natasha.conf.
+    if (yyparse(scanner, config, socket_id, context, process_pkt)) {
+        RTE_LOG(EMERG, APP, "Unable to parse configuration file\n");
+        return -1;
+    }
+
+    // If we reach this JIT part, it means yyparse() didn't update process_pkt,
+    // probably because the rules{} section of natasha.conf is empty. Let's
+    // drop the packet.
+    drop_ret = call_natasha(process_pkt, &action_drop, NULL, 0);
+    jit_insn_return(process_pkt, drop_ret);
+
+    // Compile "func" before converting it to a closure. If we don't compile it
+    // explicitly, the compilation will be done when the closure is called for
+    // the first time which causes an overhead when dealing with the first
+    // packet.
+    if (!jit_function_compile(process_pkt)) {
+        RTE_LOG(EMERG, APP, "Unable to compile JIT function\n");
+        return -1;
+    }
+
+    // To call a libjit jit_function_t created with jit_function_create(), you
+    // can either call jit_function_apply() which does some checks to ensure
+    // the ABI is correct (which is expensive), or convert the jit_function_t to
+    // a closure with jit_function_to_closure() which returns a pointer to
+    // function that you can call directly, without overhead.
+    config->process_pkt = jit_function_to_closure(process_pkt);
+
+    jit_context_build_end(context);
+
+    return 0;
 }
 
 /*
@@ -124,7 +282,8 @@ app_config_load(int argc, char **argv, unsigned int socket_id)
     }
 
     yyset_in(handle, scanner);
-    ret = yyparse(scanner, config, socket_id);
+
+    ret = parse_config(scanner, config, socket_id);
 
     // Free handle and files opened during parsing
     free_flex_buffers(scanner);

@@ -1,5 +1,9 @@
 #include <rte_ethdev.h>
+#include <rte_prefetch.h>
 
+#include <jit/jit.h>
+
+#include "actions.h"
 #include "natasha.h"
 #include "network_headers.h"
 
@@ -97,85 +101,96 @@ icmp_answer(struct rte_mbuf *pkt, uint8_t port, struct core *core)
     return 0;
 }
 
-#define X(cond) do {    \
-    if ((cond) < 0) {   \
-        return -1;      \
-    }                   \
-} while (0)
-
 /*
- * Process the rules AST for pkt.
- *
- * See detailed documentation in docs/CONFIGURATION.md.
+ * Run the process_pkt JIT function.
  */
-static int
-process_rules(struct app_config_node *node, struct rte_mbuf *pkt, uint8_t port,
-              struct core *core)
-{
-    int ret;
+//static int
+//process_pkt(struct rte_mbuf *pkt, uint8_t port, struct core *core)
+//{
+//    void *args[] = {
+//        &pkt,
+//        &port,
+//        &core
+//    };
+//    int ret;
+//
+//    core->app_config->process_pkt(pkt, port, core);
+//
+//    //jit_function_apply(core->app_config->process_pkt, args, &ret);
+//    // XXXXXXXXX: to improve performances *a lot* we need to call
+//    // jit_function_to_closure instead of jit_function_apply
+//    // http://eli.thegreenplace.net/2013/10/17/getting-started-with-libjit-part-1
+//    return ret;
+//}
 
-    if (!node) {
-        return 0;
-    }
-
-    switch (node->type) {
-
-    // Execute node's action.
-    case ACTION:
-        return node->action(pkt, port, core, node->data);
-
-    // Execute left and right parts.
-    case SEQ:
-        X(process_rules(node->left, pkt, port, core));
-        X(process_rules(node->right, pkt, port, core));
-        return 0;
-
-    // The left part of a IF node is a COND node, the right part is the else
-    // clause. Only execute the else clause if the COND is false.
-    case IF:
-        X(ret = process_rules(node->left, pkt, port, core));
-        if (ret == 0) {
-            X(process_rules(node->right, pkt, port, core));
-        }
-        return 0;
-
-    // The left part of a COND node is an ACTION node where
-    // node->left->action() returns a boolean. The right part is the condition
-    // body, that needs to be executed if the boolean is true.
-    case COND:
-        X(ret = process_rules(node->left, pkt, port, core));
-        if (ret == 0) {
-            return 0;
-        }
-        X(process_rules(node->right, pkt, port, core));
-        return 1;
-
-    // The left and the right part of a AND nodes are ACTION nodes where
-    // node->{{side}}->action() returns a boolean. Return true if both
-    // functions return true.
-    case AND:
-        X(ret = process_rules(node->left, pkt, port, core));
-        if (!ret)
-            return 0;
-        X(ret = process_rules(node->right, pkt, port, core));
-        return ret;
-
-    // Almost like the AND node.
-    case OR:
-        X(ret = process_rules(node->left, pkt, port, core));
-        if (ret)
-            return 1;
-        X(ret = process_rules(node->right, pkt, port, core));
-        return ret;
-
-    default:
-        break ;
-    }
-
-    return 0;
-}
-
-#undef X
+//static int
+//process_rules(struct app_config_node *node, struct rte_mbuf *pkt, uint8_t port,
+//              struct core *core)
+//{
+//    jit_context_t context;
+//
+//	jit_type_t signature;
+//	jit_type_t params[4];
+//    static jit_function_t function;
+//
+//    jit_value_t args[4];
+//
+//    if (function == NULL) {
+//    // Create a context to hold the JIT's primary state
+//	context = jit_context_create();
+//
+//	// Lock the context while we build and compile the function
+//	jit_context_build_start(context);
+//
+//    // Create the function signature that takes four params: pkt, port, core
+//    // and data.
+//	params[0] = jit_type_void_ptr;
+//	params[1] = jit_type_uint;
+//	params[2] = jit_type_void_ptr;
+//	params[3] = jit_type_void_ptr;
+//    signature = jit_type_create_signature(
+//        jit_abi_cdecl, jit_type_uint, params, 4, 1
+//    );
+//
+//    // Create the function object.
+//	function = jit_function_create(context, signature);
+//	//jit_type_free(signature);
+//
+//    args[0] = jit_value_get_param(function, 0);
+//    args[1] = jit_value_get_param(function, 1);
+//    args[2] = jit_value_get_param(function, 2);
+//    args[3] = jit_value_get_param(function, 3);
+//    jit_insn_call_native(
+//        function, NULL, action_print,
+//        signature,
+//        args,
+//        4,
+//        JIT_CALL_NOTHROW);
+//
+//    // end
+//    jit_function_compile(function);
+//    jit_context_build_end(context);
+//    }
+//
+//    // call function
+//    int result = -42;
+//    void *data = NULL;
+//    void *x[] = {
+//        &pkt,
+//        &port,
+//        &core,
+//        &data
+//    };
+//
+//    jit_function_apply(function, x, &result);
+//    printf("result: %i\n", result);
+//
+//    // destroy
+//	//jit_context_destroy(context);
+//
+//    action_drop(pkt, port, core, NULL);
+//    return 0;
+//}
 
 /*
  * Fix CISCO Nexus 9000 series bug when untagging a packet.
@@ -268,15 +283,12 @@ ipv4_handle(struct rte_mbuf *pkt, uint8_t port, struct core *core)
         }
     }
 
-    // No rules for this packet, free it
-    if (unlikely(core->app_config->rules == NULL)) {
-        return -1;
-    }
-
-    // process_rules returns -1 if it encounters a breaking rule (eg.
+    // XXX: the old AST interpreter used to return -1. Is it still the case for
+    // this version?
+    // process_pkt returns -1 if it encounters a breaking rule (eg.
     // action_out or action_drop). We don't want to return -1 because the
-    // caller function – dispatch_patcher() in core.c – would free pkt.
-    (void)process_rules(core->app_config->rules, pkt, port, core);
+    // caller function – dispatch_packet() in core.c – would free pkt.
+    core->app_config->process_pkt(pkt, port, core);
 
     return 0;
 }

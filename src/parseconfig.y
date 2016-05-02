@@ -7,6 +7,8 @@
 
 #include <rte_malloc.h>
 
+#include <jit/jit.h>
+
 #include "actions.h"
 #include "conds.h"
 #include "natasha.h"
@@ -19,6 +21,8 @@
 /* Add param "config" and "socket_id" to parsing functions */
 %parse-param { struct app_config *config }
 %parse-param { unsigned int socket_id }
+%parse-param { jit_context_t context }
+%parse-param { jit_function_t process_pkt }
 
 %token OOPS
 
@@ -54,8 +58,9 @@
     uint32_t ipv4_address;
     struct ether_addr mac;
     struct ipv4_network ipv4_network;
-    struct app_config_node *config_node;
     struct app_config_port_ip_addr *port_ip_addrs;
+    jit_label_t *jit_plabel;
+    jit_value_t jit_value;
 }
 
 /* Semantic values */
@@ -71,36 +76,34 @@
 %type<port_ip_addrs>   config_port_extra_ips
 
 /* Rules types */
-%type<config_node> rules_content
-%type<config_node> rules_stmt
-%type<config_node> opt_else
+%type<jit_value> cond
+%type<jit_value> cond_in_network
+%type<jit_value> cond_vlan
 
-%type<config_node> cond
-%type<config_node> cond_in_network
-%type<config_node> cond_vlan
+%type<number> action_out_opt_vlan
 
-%type<config_node> action
-%type<config_node> action_nat_rewrite
-%type<config_node> action_out
-%type<number>      action_out_opt_vlan
-%type<config_node> action_print
-%type<config_node> action_drop
 
 %{
 #include "parseconfig.yy.h"
 
 static void
-yyerror(yyscan_t scanner, struct app_config *config, unsigned int socket_id, const char *str)
+yyerror(yyscan_t scanner,
+        struct app_config *config,
+        unsigned int socket_id,
+        jit_context_t context,
+        jit_function_t process_pkt,
+        const char *str)
 {
     RTE_LOG(EMERG, APP, "Parsing error on line %i: %s\n",
             yyget_lineno(scanner), str);
 }
 
-#define CHECK_PTR(ptr) do {                                                    \
-    if ((ptr) == NULL) {                                                       \
-        yyerror(scanner, config, socket_id, "Unable to allocate memory\n");    \
-        YYERROR;                                                               \
-    }                                                                          \
+#define CHECK_PTR(ptr) do {                                  \
+    if ((ptr) == NULL) {                                     \
+        yyerror(scanner, config, socket_id, context,         \
+                process_pkt, "Unable to allocate memory\n"); \
+        YYERROR;                                             \
+    }                                                        \
 } while (0)
 
 %}
@@ -136,7 +139,8 @@ config_port:
         struct app_config_port_ip_addr *port_ip;
 
         if ($port >= RTE_MAX_ETHPORTS) {
-            yyerror(scanner, config, socket_id, "Invalid port number");
+            yyerror(scanner, config, socket_id, context, process_pkt,
+                    "Invalid port number");
             YYERROR;
         }
 
@@ -183,103 +187,83 @@ config_nat_rule:
     TOK_NAT_RULE IPV4_ADDRESS[from] IPV4_ADDRESS[to] ';'
     {
         if (add_rules_to_table(&config->nat_lookup, $from, $to, socket_id) < 0) {
-            yyerror(scanner, config, socket_id, "Unable to add NAT rule");
+            yyerror(scanner, config, socket_id, context, process_pkt,
+                    "Unable to add NAT rule");
             YYERROR;
         }
     }
 ;
 
-
 /*
  * RULES SECTION
  */
 rules_section:
-    RULES_SECTION '{' rules_content[root] '}' {
-        config->rules = $root;
-    }
+    RULES_SECTION '{' rules_content[root] '}'
 ;
 
 rules_content:
-    /* empty */ { $$ = NULL; }
-    | rules_content[prev] rules_stmt[new] {
-
-        // Do not create a sequence node if this is the first action
-        if ($prev == NULL) {
-            $$ = $new;
-        }
-        // Do not create a sequence node if $new is an empty statement
-        else if ($new == NULL) {
-            $$ = $prev;
-        }
-        else {
-            struct app_config_node *node;
-
-            node = rte_zmalloc_socket(NULL, sizeof(*node), 0, socket_id);
-            CHECK_PTR(node);
-
-            node->type = SEQ;
-            node->left = $prev;
-            node->right = $new;
-
-            $$ = node;
-        }
-    }
+    /* empty */
+    | rules_content[prev] rules_stmt[new]
 ;
 
 rules_stmt:
-    ';' { $$ = NULL; }
-    | TOK_IF '(' cond[what] ')' '{' rules_content[body] '}' opt_else[else] {
-        struct app_config_node *if_node;
-        struct app_config_node *cond_node;
+    ';'
+    | TOK_IF              // $1
+      '(' cond[what] ')'  // $2, $3, $4
+      '{'                 // $5
+      {
+        jit_label_t *else_clause;
 
-        if_node = rte_zmalloc_socket(NULL, sizeof(*if_node), 0, socket_id);
-        CHECK_PTR(if_node);
+        else_clause = rte_zmalloc_socket(NULL, sizeof(*else_clause), 0, socket_id);
+        CHECK_PTR(else_clause);
+        *else_clause = jit_label_undefined;
 
-        cond_node = rte_zmalloc_socket(NULL, sizeof(*cond_node), 0, socket_id);
-        CHECK_PTR(cond_node);
+        // If $what is false, jump to else clause. Otherwise continue.
+        jit_insn_branch_if_not(process_pkt, $what, else_clause);
 
-        if_node->type = IF;
-        if_node->left = cond_node;
-        if_node->right = $else;
+        $<jit_plabel>$ = else_clause; // make else_clause available later by using the rule number, ie. $<type>6
+      }
+      {
+        jit_label_t *end_clause;
 
-        cond_node->type = COND;
-        cond_node->left = $what;
-        cond_node->right = $body;
+        end_clause = rte_zmalloc_socket(NULL, sizeof(*end_clause), 0, socket_id);
+        CHECK_PTR(end_clause);
+        *end_clause = jit_label_undefined;
 
-        $$ = if_node;
-    }
+        $<jit_plabel>$ = end_clause; // make end_clause available later by using the rule number, ie. $<type>7
+       }
+       rules_content[body]
+       '}'
+       {
+         // End of "if" clause. Jump to the end and insert the "else" label.
+         jit_label_t *else_label = $<jit_plabel>6;
+         jit_label_t *end_clause = $<jit_plabel>7;
+
+         jit_insn_branch(process_pkt, end_clause);
+         jit_insn_label(process_pkt, else_label);
+       }
+       opt_else[else]
+       {
+         // End of "else" clause. Insert "end" label.
+         jit_label_t *end_clause = $<jit_plabel>7;
+
+         jit_insn_label(process_pkt, end_clause);
+         // XXX: free labels
+       }
     | action
 ;
 
 opt_else:
-    /* empty */                            { $$ = NULL; }
-    | TOK_ELSE '{' rules_content[body] '}' { $$ = $body; }
+    /* empty */
+    | TOK_ELSE '{' rules_content[body] '}'
 ;
 
 cond:
     cond[lhs] TOK_AND cond[rhs] {
-        struct app_config_node *node;
-
-        node = rte_zmalloc_socket(NULL, sizeof(*node), 0, socket_id);
-        CHECK_PTR(node);
-
-        node->type = AND;
-        node->left = $lhs;
-        node->right = $rhs;
-
-        $$ = node;
+        $$ = jit_insn_and(process_pkt, $lhs, $rhs);
     }
     | cond[lhs] TOK_OR cond[rhs] {
-        struct app_config_node *node;
-
-        node = rte_zmalloc_socket(NULL, sizeof(*node), 0, socket_id);
-        CHECK_PTR(node);
-
-        node->type = OR;
-        node->left = $lhs;
-        node->right = $rhs;
-
-        $$ = node;
+        $$ = jit_insn_or(process_pkt, $lhs, $rhs);
     }
     | cond_in_network
     | cond_vlan
@@ -287,48 +271,25 @@ cond:
 
 cond_in_network:
     NAT_REWRITE_FIELD[field] TOK_IN IPV4_NETWORK[network] {
-        struct app_config_node *node;
-        struct ipv4_network *data;
-
-        node = rte_zmalloc_socket(NULL, sizeof(*node), 0, socket_id);
-        CHECK_PTR(node);
-
-        data = rte_zmalloc_socket(NULL, sizeof(*data), 0, socket_id);
-        CHECK_PTR(data);
-
-        *data = $network;
-
-        node->type = ACTION;
-
         if ($field == IPV4_SRC_ADDR) {
-            node->action = cond_ipv4_src_in_network;
+            $$ = call_natasha(process_pkt, &cond_ipv4_src_in_network, &$network, sizeof($network));
         } else {
-            node->action = cond_ipv4_dst_in_network;
+            $$ = call_natasha(process_pkt, &cond_ipv4_dst_in_network, &$network, sizeof($network));
         }
-        node->data = data;
-
-        $$ = node;
     }
 ;
 
 cond_vlan:
     TOK_VLAN NUMBER[vlan] {
-        struct app_config_node *node;
+        // XXX do we really need a malloc here? how can we free it?
         int *data;
-
-        node = rte_zmalloc_socket(NULL, sizeof(*node), 0, socket_id);
-        CHECK_PTR(node);
 
         data = rte_zmalloc_socket(NULL, sizeof(*data), 0, socket_id);
         CHECK_PTR(data);
 
         *data = $vlan;
 
-        node->type = ACTION;
-        node->action = cond_vlan;
-        node->data = data;
-
-        $$ = node;
+        $$ = call_natasha(process_pkt, &cond_vlan, data, sizeof(data));
     }
 ;
 
@@ -341,49 +302,18 @@ action:
 
 action_nat_rewrite:
     TOK_NAT_REWRITE NAT_REWRITE_FIELD[field] ';' {
-        struct app_config_node *node;
-        int *data;
-
-        node = rte_zmalloc_socket(NULL, sizeof(*node), 0, socket_id);
-        CHECK_PTR(node);
-
-        data = rte_zmalloc_socket(NULL, sizeof(*data), 0, socket_id);
-        CHECK_PTR(data);
-
-        if ($field == IPV4_SRC_ADDR) {
-            *data = IPV4_SRC_ADDR;
-        } else {
-            *data = IPV4_DST_ADDR;
-        }
-
-        node->type = ACTION;
-        node->action = action_nat_rewrite;
-        node->data = data;
-
-        $$ = node;
+        call_natasha(process_pkt, &action_nat_rewrite, &$field, sizeof($field));
     }
 ;
 
 action_out:
     TOK_OUT TOK_PORT NUMBER[port] TOK_MAC MAC_ADDRESS[mac] action_out_opt_vlan[vlan] ';' {
-        struct app_config_node *node;
-        struct out_packet *data;
-
-        node = rte_zmalloc_socket(NULL, sizeof(*node), 0, socket_id);
-        CHECK_PTR(node);
-
-        data = rte_zmalloc_socket(NULL, sizeof(*data), 0, socket_id);
-        CHECK_PTR(data);
-
-        data->port = $port;
-        data->next_hop = $mac;
-        data->vlan = $vlan;
-
-        node->type = ACTION;
-        node->action = action_out;
-        node->data = data;
-
-        $$ = node;
+        struct out_packet data = {
+            .port     = $port,
+            .vlan     = $vlan,
+            .next_hop = $mac
+        };
+        call_natasha(process_pkt, &action_out, &data, sizeof(data));
     }
 ;
 
@@ -393,28 +323,12 @@ action_out_opt_vlan:
 
 action_print:
     TOK_PRINT {
-        struct app_config_node *node;
-
-        node = rte_zmalloc_socket(NULL, sizeof(*node), 0, socket_id);
-        CHECK_PTR(node);
-
-        node->type = ACTION;
-        node->action = action_print;
-
-        $$ = node;
+        call_natasha(process_pkt, &action_print, NULL, 0);
     }
 ;
 
 action_drop:
     TOK_DROP {
-        struct app_config_node *node;
-
-        node = rte_zmalloc_socket(NULL, sizeof(*node), 0, socket_id);
-        CHECK_PTR(node);
-
-        node->type = ACTION;
-        node->action = action_drop;
-
-        $$ = node;
+        call_natasha(process_pkt, &action_drop, NULL, 0);
     }
 ;

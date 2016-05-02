@@ -19,7 +19,6 @@ int action_drop(struct rte_mbuf *pkt, uint8_t port, struct core *core,
 int action_print(struct rte_mbuf *pkt, uint8_t port, struct core *core,
                  void *data);
 
-
 /**************
  * action nat *
  **************/
@@ -40,16 +39,15 @@ int add_rules_to_table(uint32_t ****nat_lookup,
 int nat_dump_rules(int out_fd, uint32_t ***nat_lookup);
 int nat_number_of_rules(uint32_t ***nat_lookup);
 
+
+/**************
+ * action out *
+ **************/
 struct out_packet {
     uint8_t port;
     int vlan;
     struct ether_addr next_hop;
 };
-
-
-/**************
- * action out *
- **************/
 
 int action_out(struct rte_mbuf *pkt, uint8_t port, struct core *core,
                void *data);

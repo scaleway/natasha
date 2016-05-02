@@ -1,0 +1,252 @@
+run natasha: RTE_TARGET=build RTE_SDK=`pwd`/../dpdk make && sudo ./build/nat -l 1,3 --master-lcore=1 -n 4 -- -f ~/natasha.conf
+
+natasha-cli stats: natasha-cli reset && watch -n 1 -d natasha-cli stats
+natasha-cli reload: natasha-cli reload
+
+perf top : sudo perf top -C 3 -d 1 -M intel -K
+
+perf intel: IntelPerformanceCounterMonitor-PCM-V2.10/
+
+
+natasha.conf:
+
+
+config {
+    #port 0 ip 10.2.31.11;
+    #port 1 ip 212.47.255.91;
+
+    #cores {
+    #   0, 1: port 0
+    #   2, 3: port 1
+    #    0 port 0
+    #    1 port 0
+
+    #    2 port 1
+    #    3 port 1
+    #};
+
+    # cores 0, 1 receive from port 0
+    # cores 2, 3 receive from port 1
+
+    #port 0 cores 0, 1 mtu 8192 vlan 63 ip 10.2.31.11;
+
+    #port 0 mtu 9000 vlan 63 ip 10.2.31.11;
+    #port 1 mtu 9000 vlan 33 ip 212.47.255.91;
+
+    port 0 mtu 9000 ip 10.2.31.11;
+    port 1 mtu 9000 ip 212.47.255.91;
+
+    # NAT RULES
+    nat rule 10.2.0.2 212.47.255.128;
+}
+
+rules {
+
+
+if (ipv4.src_addr in 0.0.0.0/32) {
+    print;
+}
+
+nat rewrite ipv4.dst_addr;
+out port 0 mac 7c:0e:ce:25:f3:97;
+
+#   if (ipv4.src_addr in 1.0.0.0/32 and (
+#                ipv4.dst_addr in 1.0.0.0/23
+#                or ipv4.dst_addr in 1.0.0.0/22
+#                or ipv4.dst_addr in 1.0.0.0/21
+#                or ipv4.dst_addr in 1.0.0.0/21
+#                or ipv4.dst_addr in 1.0.0.0/22
+#                or ipv4.dst_addr in 1.0.0.0/23
+#                or ipv4.dst_addr in 1.0.0.0/24
+#                or ipv4.dst_addr in 1.0.0.0/19
+#    )) {
+#       print;
+#       drop;
+#       nat rewrite ipv4.src_addr;
+#       nat rewrite ipv4.dst_addr;
+#       out port 0 mac 58:97:bd:4f:6f:c7;
+#       #out port 0 mac 58:97:bd:4f:6f:c7 vlan 76;
+#   }
+#
+#   if (ipv4.src_addr in 1.0.0.0/8) {
+#        print; drop;
+#       nat rewrite ipv4.src_addr;
+#       out port 1 mac 58:97:bd:4f:6f:c7;
+#       #out port 1 mac 58:97:bd:4f:6f:c7 vlan 35;
+#   }
+#
+#   if (
+#        ipv4.dst_addr in 1.0.0.0/23
+#        or ipv4.dst_addr in 1.0.0.0/22
+#        or ipv4.dst_addr in 1.0.0.0/21
+#        or ipv4.dst_addr in 1.0.0.0/21
+#        or ipv4.dst_addr in 1.0.0.0/22
+#        or ipv4.dst_addr in 1.0.0.0/23
+#        or ipv4.dst_addr in 1.0.0.0/24
+#        or ipv4.dst_addr in 1.0.0.0/19
+#    ) {
+#       nat rewrite ipv4.dst_addr;
+#       out port 0 mac 58:97:bd:4f:6f:c7;
+#       #out port 0 mac 58:97:bd:4f:6f:c7 vlan 76;
+#   }
+#
+#   if (ipv4.dst_addr in 212.47.255.128/32) {
+#       nat rewrite ipv4.dst_addr;
+#       #out port 0 mac 7c:0e:ce:25:f3:97 vlan 63;
+#       out port 0 mac 7c:0e:ce:25:f3:97;
+#   }
+#
+
+####### TEST WORKING CONFIGURATION
+####   if (ipv4.src_addr in 10.2.0.2/32 and ipv4.dst_addr in 212.47.255.128/32) {
+####       nat rewrite ipv4.src_addr;
+####       nat rewrite ipv4.dst_addr;
+####       out port 1 mac 7c:0e:ce:25:f3:97 vlan 33;
+####   }
+####
+####   #if (vlan 63) {
+####   if (ipv4.src_addr in 10.2.0.2/32) {
+####       nat rewrite ipv4.src_addr;
+####       out port 1 mac 7c:0e:ce:25:f3:97 vlan 33;
+####   }
+####
+####   if (ipv4.dst_addr in 212.47.255.128/32) {
+####   #if (vlan 33) {
+####       nat rewrite ipv4.dst_addr;
+####       out port 0 mac 7c:0e:ce:25:f3:97 vlan 63;
+####   }
+####
+####    print ;
+####    drop ;
+}
+
+
+
+
+
+
+
+
+
+$ cat ddosnatedpriv.lua
+package.path = package.path ..";?.lua;test/?.lua;app/?.lua;"
+
+printf("\nLaunching ddos udp priv to pub...\n");
+pktgen.stop("0");
+
+pktgen.send_arp("0", "g");
+pktgen.icmp_echo("0", "on");
+pktgen.vlanid("0", 0);
+pktgen.set_ipaddr("0", "src", "10.2.0.2/24");
+
+pktgen.page("range");
+pktgen.set_mac("0", "7c:0e:ce:25:f3:97");
+pktgen.dst_mac("0", "7c:0e:ce:25:f3:97");
+
+pktgen.pkt_size("0", "start", 128);
+pktgen.pkt_size("0", "inc", 2);
+pktgen.pkt_size("0", "min", 64);
+pktgen.pkt_size("0", "max", 128);
+
+pktgen.src_port("0", "start", 5678);
+pktgen.src_port("0", "inc", 5);
+pktgen.src_port("0", "min", 1234);
+pktgen.src_port("0", "max", 9999);
+
+pktgen.dst_port("0", "start", 1234);
+pktgen.dst_port("0", "inc", 4);
+pktgen.dst_port("0", "min", 1234);
+pktgen.dst_port("0", "max", 2345);
+
+pktgen.dst_ip("0", "start", "212.45.255.90");
+pktgen.dst_ip("0", "inc", "0.0.0.0");
+pktgen.dst_ip("0", "min", "212.45.255.90");
+pktgen.dst_ip("0", "max", "212.45.255.90");
+
+pktgen.src_ip("0", "start", "10.2.0.2");
+pktgen.src_ip("0", "inc", "0.0.0.1");
+pktgen.src_ip("0", "min", "10.2.0.2");
+pktgen.src_ip("0", "max", "10.2.0.255");
+
+pktgen.page("0");
+pktgen.range("0", "on");
+
+pktgen.set_proto("0", "udp");
+pktgen.set("0", "rate", 100);
+-- forever
+pktgen.set("0", "count", 1);
+pktgen.start("0");
+
+printf("\nDone\n");
+
+
+
+
+$ cat ddosnatedpub.lua
+package.path = package.path ..";?.lua;test/?.lua;app/?.lua;"
+
+printf("\nLaunching ddos udp pub...\n");
+pktgen.stop("1");
+pktgen.clear("all");
+
+pktgen.send_arp("1", "g");
+pktgen.icmp_echo("1", "on");
+pktgen.vlanid("1", 0);
+
+pktgen.set_ipaddr("1", "src", "212.45.255.90/29");
+pktgen.page("range");
+pktgen.set_mac("1", "90:e2:ba:6d:be:29");
+pktgen.dst_mac("1", "90:e2:ba:6d:be:29");
+
+pktgen.pkt_size("1", "start", 64);
+pktgen.pkt_size("1", "inc", 0);
+pktgen.pkt_size("1", "min", 64);
+pktgen.pkt_size("1", "max", 64);
+
+-- pktgen.pkt_size("1", "start", 400);
+-- pktgen.pkt_size("1", "inc", 10);
+-- pktgen.pkt_size("1", "min", 1000);
+-- pktgen.pkt_size("1", "max", 1000);
+
+pktgen.src_port("1", "start", 4242);
+pktgen.src_port("1", "inc", 0);
+pktgen.src_port("1", "min", 4242);
+pktgen.src_port("1", "max", 4242);
+
+pktgen.dst_port("1", "start", 4343);
+pktgen.dst_port("1", "inc", 0);
+pktgen.dst_port("1", "min", 4343);
+pktgen.dst_port("1", "max", 4343);
+
+-- pktgen.src_ip("1", "start", "212.45.255.90");
+-- pktgen.src_ip("1", "inc", "0.0.0.0");
+-- pktgen.src_ip("1", "min", "212.45.255.90");
+-- pktgen.src_ip("1", "max", "212.45.255.90");
+
+pktgen.src_ip("1", "start", "1.1.1.1");
+pktgen.src_ip("1", "inc", "0.0.0.1");
+pktgen.src_ip("1", "min", "1.1.1.1");
+pktgen.src_ip("1", "max", "254.254.254.254");
+
+pktgen.dst_ip("1", "start", "212.47.255.128");
+pktgen.dst_ip("1", "inc", "0.0.0.0");
+pktgen.dst_ip("1", "min", "212.47.255.128");
+pktgen.dst_ip("1", "max", "212.47.255.128");
+
+-- pktgen.dst_ip("1", "start", "10.2.0.2");
+-- pktgen.dst_ip("1", "inc", "0.0.0.0");
+-- pktgen.dst_ip("1", "min", "10.2.0.2");
+-- pktgen.dst_ip("1", "max", "10.2.0.2");
+
+pktgen.page("0");
+pktgen.range("1", "on");
+
+pktgen.set_proto("1", "udp");
+pktgen.set("1", "burst", 32);
+pktgen.set("1", "rate", 100);
+
+-- forever
+pktgen.set("1", "count", 0);
+pktgen.start("1");
+
+printf("\nDone\n");

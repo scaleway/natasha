@@ -17,8 +17,6 @@
 %x include_ctx
 
 %{
-#include <stdio.h>
-
 #include <rte_ip.h>
 
 #include "actions.h"
@@ -126,8 +124,8 @@ ipv4\.dst_addr  yylval->number = IPV4_DST_ADDR; return NAT_REWRITE_FIELD;
         yypush_buffer_state(state, yyscanner);
 
     } else {
-        fprintf(stderr, "Unable to !include %s: %s\n",
-                yytext, strerror(errno));
+        RTE_LOG(EMERG, APP,
+                "Unable to !include %s: %s\n", yytext, strerror(errno));
     }
 
     // Start the default context with the new active buffer (if include

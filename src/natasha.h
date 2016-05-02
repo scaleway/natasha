@@ -4,6 +4,8 @@
 #include <rte_ethdev.h>
 #include <rte_rwlock.h>
 
+#include <jit/jit.h>
+
 /*
  * Logging configuration.
  */
@@ -37,26 +39,6 @@ struct app_config_port {
         } addr;
         struct app_config_port_ip_addr *next;
     } *ip_addresses;
-};
-
-// See docs/CONFIGURATION.md.
-struct app_config_node {
-    struct app_config_node *left;
-    struct app_config_node *right;
-
-    enum {
-        NOOP, // Unused
-        ACTION, // Execute the action
-        SEQ, // Execute both left and right
-        IF, // Execute right if left is false
-        COND, // Execute right if left is true
-        AND, // True if left and right are true
-        OR, // True if left or right is true
-    } type;
-
-    int (*action)(struct rte_mbuf *pkt, uint8_t port, struct core *core,
-                  void *data);
-    void *data;
 };
 
 // Software configuration.
@@ -94,7 +76,8 @@ struct app_config {
      */
     uint32_t ***nat_lookup;
 
-    struct app_config_node *rules;
+    // The JIT function called to process every packet.
+    int (*process_pkt)(struct rte_mbuf *, uint8_t, struct core *);
 };
 
 
@@ -140,6 +123,10 @@ void app_config_free(struct app_config *config);
 int support_per_queue_statistics(uint8_t port);
 int app_config_reload_all(struct core *cores, int argc, char **argv,
                           int out_fd);
+jit_value_t call_natasha(jit_function_t jit_function,
+                         int (*func)(struct rte_mbuf *, uint8_t, struct core *, void *),
+                         void *data,
+                         size_t datasize);
 
 // stats.c
 void stats_display(int fd);

@@ -221,9 +221,19 @@ fix_nexus9000_padding_bug(struct rte_mbuf *pkt)
 
     ipv4_hdr = ipv4_header(pkt);
     ipv4_len = rte_be_to_cpu_16(ipv4_hdr->total_length);
+
+    // pkt->pkt_len is at least bigger than a IPv4 packet, otherwise we
+    // wouldn't be here since pkt would not have been recognized as a
+    // ETHER_TYPE_IPv4 packet in core.c
+    //
+    // ipv4_len is read from the ipv4 header, which is a 16 bits integer user
+    // input.
+    //
+    // We don't want padding_len to be inferior to 0, as it would cause a
+    // buffer overflow when casted as unsigned in memset.
     padding_len = pkt->pkt_len - sizeof(struct ether_hdr) - ipv4_len;
 
-    if (padding_len) {
+    if (padding_len > 0) {
         pkt_data = rte_pktmbuf_mtod(pkt, unsigned char *);
         memset(pkt_data + sizeof(struct ether_hdr) + ipv4_len,
                0x00,

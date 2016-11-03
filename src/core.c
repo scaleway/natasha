@@ -1,3 +1,4 @@
+#include <fcntl.h>
 #include <unistd.h>
 
 #include <rte_common.h>
@@ -438,6 +439,20 @@ natasha(int argc, char **argv)
 {
     int ret;
     struct core cores[RTE_MAX_LCORE] = {};
+    int flags;
+
+    // RTE_LOG logs on stderr. If stderr is a pipe (for instance in the case
+    // natasha is managed by supervisord) and the pipe is full because no one
+    // is reading on the other end (which happens if supervisor's reader
+    // crashes — which happens —), the logging will become blocking and the app
+    // will be stuck.
+    // In this case, we prefer to lose logging rather than having a non-working
+    // application.
+    if ((flags = fcntl(STDERR_FILENO, F_GETFL, 0)) < 0 ||
+        fcntl(STDERR_FILENO, F_SETFL, flags | O_NONBLOCK) < 0) {
+
+        rte_exit(EXIT_FAILURE, "Unable to set stderr as non-blocking\n");
+    }
 
     ret = rte_eal_init(argc, argv);
     if (ret < 0) {

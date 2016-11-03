@@ -49,9 +49,9 @@ heap_freesize(void)
     size_t size;
 
     size = 0;
-	for (socket = 0; socket < RTE_MAX_NUMA_NODES; socket++) {
+    for (socket = 0; socket < RTE_MAX_NUMA_NODES; socket++) {
         if ((rte_malloc_get_socket_stats(socket, &sock_stats) < 0)) {
-			continue;
+            continue;
         }
         size += sock_stats.heap_freesz_bytes;
     }

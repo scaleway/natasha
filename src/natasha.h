@@ -9,8 +9,8 @@
  */
 #ifdef DEBUG
     #define LOG_LEVEL RTE_LOG_DEBUG
-    #define LOG_DEBUG(log_type, fmt, args...) do {	\
-        RTE_LOG(DEBUG, log_type, fmt, ##args);		\
+    #define LOG_DEBUG(log_type, fmt, args...) do {  \
+        RTE_LOG(DEBUG, log_type, fmt, ##args);      \
     } while (0)
 #else
     #define LOG_LEVEL RTE_LOG_INFO

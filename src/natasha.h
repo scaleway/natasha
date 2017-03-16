@@ -149,6 +149,7 @@ struct core {
 struct app_config *app_config_load(int argc, char **argv,
                                    unsigned int socket_id);
 void app_config_free(struct app_config *config);
+int support_per_queue_statistics(uint8_t port);
 int app_config_reload_all(struct core *cores, int argc, char **argv,
                           int out_fd);
 

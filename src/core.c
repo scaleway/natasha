@@ -127,8 +127,11 @@ setup_queues(uint8_t port, struct core *cores, unsigned int ncores)
 {
     int ret;
 
+    int per_queue_stats_enabled;
     uint16_t queue_id;
     unsigned int core;
+
+    per_queue_stats_enabled = support_per_queue_statistics(port);
 
     /* Configure queues */
     queue_id = 0;
@@ -194,14 +197,16 @@ setup_queues(uint8_t port, struct core *cores, unsigned int ncores)
             return ret;
         }
 
-        ret = rte_eth_dev_set_rx_queue_stats_mapping(port, queue_id,
-                                                     rx_stats_idx);
-        if (ret < 0) {
-            RTE_LOG(ERR, APP,
-                    "Port %i: failed to setup statistics of RX queue %i on "
-                    "core %i: %s\n",
-                    port, queue_id, core, rte_strerror(rte_errno));
-            return ret;
+        if (per_queue_stats_enabled) {
+            ret = rte_eth_dev_set_rx_queue_stats_mapping(port, queue_id,
+                                                         rx_stats_idx);
+            if (ret < 0) {
+                RTE_LOG(ERR, APP,
+                        "Port %i: failed to setup statistics of RX queue %i on "
+                        "core %i: %s\n",
+                        port, queue_id, core, rte_strerror(rte_errno));
+                return ret;
+            }
         }
 
         // TX queue
@@ -214,14 +219,16 @@ setup_queues(uint8_t port, struct core *cores, unsigned int ncores)
             return ret;
         }
 
-        ret = rte_eth_dev_set_tx_queue_stats_mapping(port, queue_id,
-                                                     tx_stats_idx);
-        if (ret < 0) {
-            RTE_LOG(ERR, APP,
-                    "Port %i: failed to setup statistics of TX queue %i on "
-                    "core %i: %s\n",
-                    port, queue_id, core, rte_strerror(rte_errno));
-            return ret;
+        if (per_queue_stats_enabled) {
+            ret = rte_eth_dev_set_tx_queue_stats_mapping(port, queue_id,
+                                                         tx_stats_idx);
+            if (ret < 0) {
+                RTE_LOG(ERR, APP,
+                        "Port %i: failed to setup statistics of TX queue %i on "
+                        "core %i: %s\n",
+                        port, queue_id, core, rte_strerror(rte_errno));
+                return ret;
+            }
         }
 
         RTE_LOG(DEBUG, APP,

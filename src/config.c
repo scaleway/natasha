@@ -143,6 +143,20 @@ error:
 }
 
 /*
+ * Whether or not the PMD supports per-queue statistics.
+ * Currently, ixgbe supports them but not i40e (see DPDK source code at
+ * drivers/net/i40e/i40e_ethdev.c:i40e_dev_queue_stats_mapping).
+ */
+int
+support_per_queue_statistics(uint8_t port)
+{
+    struct rte_eth_dev_info dev_info;
+
+    rte_eth_dev_info_get(port, &dev_info);
+    return !!strcmp(dev_info.driver_name, "net_i40e");
+}
+
+/*
  * Reload the configuration of each worker.
  */
 int

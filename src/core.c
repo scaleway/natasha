@@ -260,8 +260,7 @@ setup_port(uint8_t port, struct app_config *app_config, struct core *cores)
     unsigned int ncores;
     uint16_t nqueues;
     struct rte_eth_conf eth_conf = {
-        .link_speed  = 0,
-        .link_duplex = 0,
+        .link_speeds        = ETH_LINK_SPEED_AUTONEG,
         .rxmode = {
             .mq_mode        = ETH_MQ_RX_RSS,
             .jumbo_frame    = (app_config->ports[port].mtu > ETHER_MAX_LEN),

@@ -15,7 +15,7 @@ for f in *.conf; do
     expect=$(echo "$f" | sed 's/\.conf/\.expect/')
     out=$(echo "$f" | sed 's/\.conf/\.out/')
 
-    ./test_config_bin -c 0x3 -n 1 --no-huge -- -f ${f} > ${out}
+    ./test_config_bin -c 0x3 -- -f ${f} > ${out}
 
     # Only keep lines beginning with "EXPECT:" and NAT rules ./bin output to
     # compare against the .expect file.

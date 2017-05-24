@@ -37,3 +37,4 @@ TODO
 ====
 
 - Return ICMP response if TTL is exceeded.
+- Raise error if out on non-configured port.

@@ -4,7 +4,7 @@
 
 
 /*
- * Output a IPV4 packet on a TX queue.
+ * Output an IPV4 packet on a TX queue.
  */
 int
 action_out(struct rte_mbuf *pkt, uint8_t port, struct core *core, void *data)

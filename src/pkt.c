@@ -62,6 +62,16 @@ tx_flush(uint8_t port, struct tx_queue *queue)
         return 0;
     }
 
+    // rte_eth_tx_prepare updates queue->pkts to offload TCP/UDP checksums.
+    //
+    // Make sure to set the ol_flag PKT_TX_IPV4 otherwise rte_eth_prepare
+    // considers the packet as an IPV6 packet (see
+    // dpdk/lib/librte_net/rte_net.h:rte_net_intel_cksum_flags_prepare()).
+    //
+    // We don't check the return value of rte_eth_tx_prepare because the
+    // function rte_net_intel_cksum_flags_prepare() in rte_net.h cannot fail.
+    (void)rte_eth_tx_prepare(port, queue->id, queue->pkts, queue->len);
+
     sent = rte_eth_tx_burst(port, queue->id, queue->pkts, queue->len);
 
     // rte_eth_tx_burst() is responsible to free the sent packets. We need to

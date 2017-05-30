@@ -17,6 +17,10 @@ action_out(struct rte_mbuf *pkt, uint8_t port, struct core *core, void *data)
     rte_eth_macaddr_get(port, &eth_hdr->s_addr);
     ether_addr_copy(&out->next_hop, &eth_hdr->d_addr);
 
+    // PKT_TX_IPV4 needs to be set otherwise rte_eth_tx_prepare() called in
+    // pkt.c/tx_flush will fail. See documentation in pkt.c.
+    pkt->ol_flags |= PKT_TX_IPV4;
+
     // Compute IPv4 checksum
     ipv4_hdr->hdr_checksum = 0;
     ipv4_hdr->hdr_checksum = rte_ipv4_cksum(ipv4_hdr);
@@ -24,7 +28,7 @@ action_out(struct rte_mbuf *pkt, uint8_t port, struct core *core, void *data)
     // Rewrite out vlan
     pkt->vlan_tci = out->vlan;
 
-    // Recompute L4 checksums
+    // Offload L4 checksums
     switch (ipv4_hdr->next_proto_id) {
 
     case IPPROTO_TCP: {
@@ -33,8 +37,6 @@ action_out(struct rte_mbuf *pkt, uint8_t port, struct core *core, void *data)
         tcp_hdr = tcp_header(pkt);
         tcp_hdr->cksum = 0;
         pkt->ol_flags |= PKT_TX_TCP_CKSUM;
-        tcp_hdr->cksum = rte_ipv4_phdr_cksum(ipv4_header(pkt),
-                                             pkt->ol_flags);
         break ;
     }
 
@@ -44,8 +46,6 @@ action_out(struct rte_mbuf *pkt, uint8_t port, struct core *core, void *data)
         udp_hdr = udp_header(pkt);
         udp_hdr->dgram_cksum = 0;
         pkt->ol_flags |= PKT_TX_UDP_CKSUM;
-        udp_hdr->dgram_cksum = rte_ipv4_phdr_cksum(ipv4_header(pkt),
-                                                   pkt->ol_flags);
         break ;
     }
 

@@ -264,6 +264,7 @@ setup_port(uint8_t port, struct app_config *app_config, struct core *cores)
 {
     int ret;
 
+    struct rte_eth_dev_info dev_info;
     unsigned int ncores;
     uint16_t nqueues;
     struct rte_eth_conf eth_conf = {
@@ -300,6 +301,16 @@ setup_port(uint8_t port, struct app_config *app_config, struct core *cores)
     };
 
     struct app_config_port_ip_addr *port_ip_addr;
+
+    rte_eth_dev_info_get(port, &dev_info);
+    if ((dev_info.tx_offload_capa & DEV_TX_OFFLOAD_IPV4_CKSUM) == 0 ||
+        (dev_info.tx_offload_capa & DEV_TX_OFFLOAD_TCP_CKSUM) == 0 ||
+        (dev_info.tx_offload_capa & DEV_TX_OFFLOAD_UDP_CKSUM) == 0
+    ) {
+        RTE_LOG(ERR, APP, "Port %i doesn't support IP, TCP or UDP checksum\n",
+                port);
+        return -1;
+	}
 
     if (app_config->ports[port].ip_addresses == NULL) {
         RTE_LOG(ERR, APP, "Missing configuration for port %i\n", port);

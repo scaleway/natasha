@@ -195,6 +195,7 @@ adm_loop(int s, struct core *cores, int argc, char **argv)
                         strerror(errno));
                 return EXIT_FAILURE;
             }
+            continue ;
         }
 
         // if slaves aren't alive, quit

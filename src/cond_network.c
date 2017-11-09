@@ -12,8 +12,8 @@
 static inline int
 ipv4_in_network(uint32_t ip, struct ipv4_network *network)
 {
-    return (ip & (~0 << (32 - network->mask))) ==
-        (network->ip & (~0 << (32 - network->mask)));
+    return (ip & (~0UL << (32 - network->mask))) ==
+        (network->ip & (~0UL << (32 - network->mask)));
 }
 
 int

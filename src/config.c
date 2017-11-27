@@ -99,14 +99,16 @@ app_config_load(int argc, char **argv, unsigned int socket_id)
         if (strcmp(argv[i], "-f") == 0) {
             if (i == argc - 1) {
                 RTE_LOG(EMERG, APP, "Filename required for -f\n");
-                goto error;
+                rte_free(config);
+                return NULL;
             }
             config_file = argv[i + 1];
             ++i;
             continue ;
         } else {
             RTE_LOG(EMERG, APP, "Unknown option: %s\n", argv[i]);
-            goto error;
+            rte_free(config);
+            return NULL;
         }
     }
 
@@ -114,13 +116,15 @@ app_config_load(int argc, char **argv, unsigned int socket_id)
     if (handle == NULL) {
         RTE_LOG(EMERG, APP, "Fail to load %s: %s\n",
                 config_file, strerror(errno));
-        goto error;
+        rte_free(config);
+        return NULL;
     }
 
     // Parse configuration file
     if (yylex_init(&scanner)) {
         fclose(handle);
-        goto error;
+        rte_free(config);
+        return NULL;
     }
 
     yyset_in(handle, scanner);
@@ -132,14 +136,11 @@ app_config_load(int argc, char **argv, unsigned int socket_id)
     yylex_destroy(scanner);
 
     if (ret != 0) {
-        goto error;
+        app_config_free(config);
+        return NULL;
     }
 
     return config;
-
-error:
-    rte_free(config);
-    return NULL;
 }
 
 /*

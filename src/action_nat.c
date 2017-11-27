@@ -107,18 +107,27 @@ add_rule_to_table(uint32_t ***t, uint32_t key, uint32_t value,
 
     if (t == NULL) {
         t = rte_zmalloc_socket(NULL, lkp_fs * sizeof(*t), 0, socket_id);
-        if (t == NULL) { return NULL; }
+        if (t == NULL) {
+            return NULL;
+        }
     }
 
     if (t[fstb] == NULL) {
         t[fstb] = rte_zmalloc_socket(NULL, lkp_ss * sizeof(**t), 0, socket_id);
-        if (t[fstb] == NULL) { return NULL ; }
+        if (t[fstb] == NULL) {
+            rte_free(t);
+            return NULL ;
+        }
     }
 
     if (t[fstb][sndb] == NULL) {
         t[fstb][sndb] = rte_zmalloc_socket(NULL, lkp_ts * sizeof(***t), 0,
                                            socket_id);
-        if (t[fstb][sndb] == NULL) { return NULL; }
+        if (t[fstb][sndb] == NULL) {
+            rte_free(t[fstb]);
+            rte_free(t);
+            return NULL;
+        }
 
         memset(t[fstb][sndb], 0, lkp_ts * sizeof(***t));
     }

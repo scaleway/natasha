@@ -6,6 +6,11 @@
 #include "actions.h"
 
 
+// As defined in the ICMP RFC https://tools.ietf.org/html/rfc792 an error has
+// the type 3.
+static const int ICMP_TYPE_ERROR = 3;
+
+
 /*
  * Search for ip in the NAT lookup table, and store the result in value.
  *
@@ -37,7 +42,8 @@ nat_lookup_ip(uint32_t ***lookup_table, uint32_t ip, uint32_t *value)
 }
 
 /*
- * Search ip in lookup_table and rewrite field. If ip is not found, drop pkt.
+ * Search `ip` in `lookup_table` and rewrite `field` with the value. If `ip` is
+ * not found, drop `pkt`.
  */
 static int
 lookup_and_rewrite(struct rte_mbuf *pkt, uint32_t ***lookup_table, uint32_t ip,
@@ -45,15 +51,121 @@ lookup_and_rewrite(struct rte_mbuf *pkt, uint32_t ***lookup_table, uint32_t ip,
 {
     uint32_t res;
 
+    // If ip not found in lookup_table
     if (nat_lookup_ip(lookup_table, ip, &res) < 0) {
         rte_pktmbuf_free(pkt);
-        return -1; // stop processing next rules
+        return -1; // Stop processing next rules
     }
 
     *field = rte_cpu_to_be_32(res);
     return 0;
 }
 
+/*
+ * The actual rewrite function, to avoid duplicating the code twice to handle
+ * the rewriting of the source and the destination addresses.
+ *
+ * We also handle the special case of ICMP error messages:
+ *   https://tools.ietf.org/html/rfc5508
+ *
+ * The most famous ICMP packets have the type "echo" or "reply", which are
+ * notably used by "ping".
+ *
+ * The type "error" also exists. It can be used to return an error like
+ * "Destination network unreachable", "Destination port unreachable", or any of
+ * the other errors:
+ *   https://en.wikipedia.org/wiki/Internet_Control_Message_Protocol
+ *
+ * An ICMP error message is always a response to a packet. For example, if you
+ * try to reach a destination with a too small TTL, an intermediate hop will
+ * return an ICMP error "Time to live exceeded".
+ *
+ * This error message contains data, which contain the IP header of the packet
+ * which originated the error.
+ *
+ * In the previous example, the "Time to live exceeded" packet is formed as
+ * follow:
+ *
+ * OUTER IP HEADER | IP DATA (the ICMP packet) | ICMP DATA (the inner IP
+ *                                                          header)
+ *
+ * The outer IP packet's source address is the intermediate hop's address, the
+ * destination is the client's address.
+ * The inner IP packet's source address is the client's address, the
+ * destination is the destination it was trying to reach.
+ *
+ * When rewriting the **source** address, the inner packet's **destination**
+ * address needs to be updated.
+ * When rewriting the **destination** address, the inner packet's **source**
+ * address needs to be updated.
+ */
+static int
+action_nat_rewrite_impl(struct rte_mbuf *pkt, uint8_t port, struct core *core, uint32_t *address, int inner_icmp_to_rewrite)
+{
+    struct ipv4_hdr *ipv4_hdr = ipv4_header(pkt);
+    int ret;
+    struct icmp_hdr *icmp_hdr;
+    struct ipv4_hdr *inner_ipv4_hdr;
+    uint32_t *inner_icmp_address;
+
+    // Rewrite IPv4 source or destination address.
+    ret = lookup_and_rewrite(pkt,
+                             core->app_config->nat_lookup,
+                             rte_be_to_cpu_32(*address),
+                             address);
+    // If the `address`is not in lookup table, it's an error and we should stop
+    // processing rules for this packet (which has been freed by
+    // lookup_and_rewrite()).
+    if (ret < 0) {
+        return ret;
+    }
+
+    // pkt is probably not an ICMP packet.
+    if (likely(ipv4_hdr->next_proto_id != IPPROTO_ICMP)) {
+        return ret;
+    }
+
+    icmp_hdr = icmp_header(pkt);
+
+    // If ICMP, it is probably not an error.
+    if (likely(icmp_hdr->icmp_type != ICMP_TYPE_ERROR)) {
+        return ret;
+    }
+
+    // pkt is actually an ICMP error. Let's rewrite the inner IP packet.
+    inner_ipv4_hdr = (struct ipv4_hdr *)(
+        (unsigned char *)icmp_hdr + sizeof(*icmp_hdr)
+    );
+
+    if (inner_icmp_to_rewrite == IPV4_SRC_ADDR) {
+        inner_icmp_address = &(inner_ipv4_hdr->src_addr);
+    } else {
+        inner_icmp_address = &(inner_ipv4_hdr->dst_addr);
+    }
+
+    // inner_ipv4_hdr contains the address to rewrite. Let's ensure this
+    // address is really in the boundaries of `pkt`, as we wouldn't want to
+    // dereference the inner IP header if it is outside of `pkt`. It can happen
+    // if the ICMP error is forged, for instance with scapy.
+    if (unlikely(
+            ((uintptr_t)ipv4_hdr + rte_be_to_cpu_16(ipv4_hdr->total_length)) <
+            (uintptr_t)inner_icmp_address + sizeof(*inner_icmp_address))
+    ) {
+        rte_pktmbuf_free(pkt);
+        return -1;
+    }
+
+    return lookup_and_rewrite(
+        pkt,
+        core->app_config->nat_lookup,
+        rte_be_to_cpu_32(*inner_icmp_address),
+        inner_icmp_address
+    );
+}
+
+/*
+ * See documentation of action_nat_rewrite_impl.
+ */
 int
 action_nat_rewrite(struct rte_mbuf *pkt, uint8_t port, struct core *core, void *data)
 {
@@ -61,18 +173,21 @@ action_nat_rewrite(struct rte_mbuf *pkt, uint8_t port, struct core *core, void *
     struct ipv4_hdr *ipv4_hdr = ipv4_header(pkt);
 
     if (field_to_rewrite == IPV4_SRC_ADDR) {
-        return lookup_and_rewrite(
-            pkt, core->app_config->nat_lookup,
-            rte_be_to_cpu_32(ipv4_hdr->src_addr),
-            &ipv4_hdr->src_addr
-        );
-    } else {
-        return lookup_and_rewrite(
-            pkt, core->app_config->nat_lookup,
-            rte_be_to_cpu_32(ipv4_hdr->dst_addr),
-            &ipv4_hdr->dst_addr
+        return action_nat_rewrite_impl(
+            pkt,
+            port,
+            core,
+            &ipv4_hdr->src_addr,
+            IPV4_DST_ADDR
         );
     }
+    return action_nat_rewrite_impl(
+        pkt,
+        port,
+        core,
+        &ipv4_hdr->dst_addr,
+        IPV4_SRC_ADDR
+    );
 }
 
 /*

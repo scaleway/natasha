@@ -100,7 +100,8 @@ lookup_and_rewrite(struct rte_mbuf *pkt, uint32_t ***lookup_table, uint32_t ip,
  * address needs to be updated.
  */
 static int
-action_nat_rewrite_impl(struct rte_mbuf *pkt, uint8_t port, struct core *core, uint32_t *address, int inner_icmp_to_rewrite)
+action_nat_rewrite_impl(struct rte_mbuf *pkt, uint8_t port, struct core *core,
+                        uint32_t *address, int inner_icmp_to_rewrite)
 {
     struct ipv4_hdr *ipv4_hdr = ipv4_header(pkt);
     int ret;
@@ -149,8 +150,8 @@ action_nat_rewrite_impl(struct rte_mbuf *pkt, uint8_t port, struct core *core, u
     // if the ICMP error is forged, for instance with scapy.
     if (unlikely(
             ((uintptr_t)ipv4_hdr + rte_be_to_cpu_16(ipv4_hdr->total_length)) <
-            (uintptr_t)inner_icmp_address + sizeof(*inner_icmp_address))
-    ) {
+            (uintptr_t)inner_icmp_address + sizeof(*inner_icmp_address)
+    )) {
         rte_pktmbuf_free(pkt);
         return -1;
     }

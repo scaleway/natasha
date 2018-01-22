@@ -101,67 +101,76 @@ lookup_and_rewrite(struct rte_mbuf *pkt, uint32_t ***lookup_table, uint32_t ip,
  */
 static int
 action_nat_rewrite_impl(struct rte_mbuf *pkt, uint8_t port, struct core *core,
-                        uint32_t *address, int inner_icmp_to_rewrite)
+                        uint32_t *address, int inner_ipv4_to_rewrite)
 {
     struct ipv4_hdr *ipv4_hdr = ipv4_header(pkt);
-    int ret;
     struct icmp_hdr *icmp_hdr;
     struct ipv4_hdr *inner_ipv4_hdr;
-    uint32_t *inner_icmp_address;
+    uint32_t *inner_ipv4_address;
 
     // Rewrite IPv4 source or destination address.
-    ret = lookup_and_rewrite(pkt,
-                             core->app_config->nat_lookup,
-                             rte_be_to_cpu_32(*address),
-                             address);
+    if (lookup_and_rewrite(pkt,
+                           core->app_config->nat_lookup,
+                           rte_be_to_cpu_32(*address),
+                           address) < 0) {
     // If the `address`is not in lookup table, it's an error and we should stop
     // processing rules for this packet (which has been freed by
     // lookup_and_rewrite()).
-    if (ret < 0) {
-        return ret;
+        return -1;
     }
 
-    // pkt is probably not an ICMP packet.
+    // pkt is probably not an ICMP packet, there is no need to handle it
+    // specifically.
     if (likely(ipv4_hdr->next_proto_id != IPPROTO_ICMP)) {
-        return ret;
+        return 0;
     }
 
     icmp_hdr = icmp_header(pkt);
 
-    // If ICMP, it is probably not an error.
+    // If it an ICMP packet, it is probably not an error and there is no need
+    // to handle it specifically.
     if (likely(icmp_hdr->icmp_type != ICMP_TYPE_ERROR)) {
-        return ret;
+        return 0;
     }
 
-    // pkt is actually an ICMP error. Let's rewrite the inner IP packet.
+    // If pkt is actually an ICMP error, let's rewrite the inner IP packet. If
+    // the outer packet is not large enough to contain a full IPv4 header, then
+    // we don't rewrite anything.
+    // We probalby should drop the packet instead, as it has probably been
+    // forged (with Scapy for instance). I don't think there are legitimate
+    // cases where an ICMP error doesn't contain the IPv4 header of the packet
+    // originating the error, but just in case I prefer not to drop anything.
+    if (unlikely(rte_be_to_cpu_16(ipv4_hdr->total_length)
+                    - sizeof(*ipv4_hdr) // outer packet
+                    - sizeof(*icmp_hdr) // ICMP error header
+                    - sizeof(*ipv4_hdr) // inner IPv4 header
+    ) < 0) {
+        return 0;
+    }
+
     inner_ipv4_hdr = (struct ipv4_hdr *)(
         (unsigned char *)icmp_hdr + sizeof(*icmp_hdr)
     );
 
-    if (inner_icmp_to_rewrite == IPV4_SRC_ADDR) {
-        inner_icmp_address = &(inner_ipv4_hdr->src_addr);
+    if (inner_ipv4_to_rewrite == IPV4_SRC_ADDR) {
+        inner_ipv4_address = &(inner_ipv4_hdr->src_addr);
     } else {
-        inner_icmp_address = &(inner_ipv4_hdr->dst_addr);
+        inner_ipv4_address = &(inner_ipv4_hdr->dst_addr);
     }
 
-    // inner_ipv4_hdr contains the address to rewrite. Let's ensure this
-    // address is really in the boundaries of `pkt`, as we wouldn't want to
-    // dereference the inner IP header if it is outside of `pkt`. It can happen
-    // if the ICMP error is forged, for instance with scapy.
-    if (unlikely(
-            ((uintptr_t)ipv4_hdr + rte_be_to_cpu_16(ipv4_hdr->total_length)) <
-            (uintptr_t)inner_icmp_address + sizeof(*inner_icmp_address)
-    )) {
-        rte_pktmbuf_free(pkt);
+    if (lookup_and_rewrite(pkt,
+                           core->app_config->nat_lookup,
+                           rte_be_to_cpu_32(*inner_ipv4_address),
+                           inner_ipv4_address) < 0) {
         return -1;
     }
 
-    return lookup_and_rewrite(
-        pkt,
-        core->app_config->nat_lookup,
-        rte_be_to_cpu_32(*inner_icmp_address),
-        inner_icmp_address
-    );
+    // Since we udpated the inner IPv4 packet, its checksum needs to be
+    // updated.
+    inner_ipv4_hdr->hdr_checksum = 0;
+    inner_ipv4_hdr->hdr_checksum = rte_ipv4_cksum(inner_ipv4_hdr);
+
+    return 0;
 }
 
 /*

@@ -107,6 +107,7 @@ action_nat_rewrite_impl(struct rte_mbuf *pkt, uint8_t port, struct core *core,
     struct icmp_hdr *icmp_hdr;
     struct ipv4_hdr *inner_ipv4_hdr;
     uint32_t *inner_ipv4_address;
+    uint32_t save_ipv4 = *address;
 
     // Rewrite IPv4 source or destination address.
     if (lookup_and_rewrite(pkt,
@@ -117,6 +118,19 @@ action_nat_rewrite_impl(struct rte_mbuf *pkt, uint8_t port, struct core *core,
     // processing rules for this packet (which has been freed by
     // lookup_and_rewrite()).
         return -1;
+    }
+
+    // Test is we have a fragmented packet and if it's the firest fragment
+    //if (unlikely(NATA_FIRST_FRAG(ipv4_hdr) && ipv4_hdr.next_proto_id == IPPROTO_UDP)) {
+    if (unlikely(NATA_FIRST_FRAG(ipv4_hdr))) {
+        if (ipv4_hdr->next_proto_id == IPPROTO_UDP) {
+            struct udp_hdr *udp_hdr = udp_header(pkt);
+            // recalculate the csum
+            udp_hdr->dgram_cksum -= save_ipv4 & 0xffff;
+            udp_hdr->dgram_cksum -= save_ipv4>>16 & 0xffff;
+            udp_hdr->dgram_cksum += *address & 0xffff;
+            udp_hdr->dgram_cksum += *address>>16 & 0xffff;
+        }
     }
 
     // pkt is probably not an ICMP packet, there is no need to handle it

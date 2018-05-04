@@ -1,7 +1,8 @@
 NATASHA
 =======
 
-Natasha is a fast, DPDK powered, stateless IPv4 packet processor.
+Natasha is a fast, **DPDK** powered, stateless **NAT44** packet processor. It
+support DPDK `v17.11` LTS version.
 
 At startup, natasha reads a configuration file that defines rules. These rules
 are processed for each packet received.

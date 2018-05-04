@@ -10,9 +10,14 @@
 #include <rte_mempool.h>
 #include <rte_memzone.h>
 #include <rte_prefetch.h>
+#include <rte_version.h>
 
 #include "natasha.h"
 
+/* check DPDK version */
+#if RTE_VER_YEAR != 17 || RTE_VER_MONTH != 11
+#error The DPDK version you are using is not supported, please use DPDK v17.11
+#endif
 
 static int
 dispatch_packet(struct rte_mbuf *pkt, uint8_t port, struct core *core)

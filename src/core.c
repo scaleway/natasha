@@ -295,7 +295,7 @@ setup_port(uint8_t port, struct app_config *app_config, struct core *cores)
             .rss_conf  =  {
                 .rss_key     = NULL,
                 .rss_key_len = 0,
-                .rss_hf      = ETH_RSS_IP,
+                .rss_hf      = ETH_RSS_IP | ETH_RSS_TCP | ETH_RSS_UDP,
             },
         },
     };

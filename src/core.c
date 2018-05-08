@@ -127,6 +127,50 @@ main_loop(void *pcore)
     return 0;
 }
 
+/* Check the link status of all ports in up to 9s, and print them finally */
+static void
+check_ports_link_status(uint16_t port_max)
+{
+#define MAX_CHECK_TIME 90 /* 9s (90 * 100ms) in total */
+#define CHECK_INTERVAL 100 /* 100ms */
+    uint8_t count, all_ports_up;
+    struct rte_eth_link link;
+    uint16_t portid;
+
+    RTE_LOG(INFO, APP, "Checking link status\n");
+    for (count = 0; count <= MAX_CHECK_TIME; count++) {
+        all_ports_up = 1;
+        for (portid = 0; portid < port_max; portid++) {
+            memset(&link, 0, sizeof(link));
+            rte_eth_link_get_nowait(portid, &link);
+            if (link.link_status)
+                RTE_LOG(INFO, APP,
+                        "Port%d Link Up. Speed %u Mbps - %s\n",
+                        portid, link.link_speed,
+                        (link.link_duplex == ETH_LINK_FULL_DUPLEX) ?
+                        ("full-duplex") : ("half-duplex\n"));
+            else
+                RTE_LOG(INFO, APP, "Port %d not ready yet.\n", portid);
+
+            /* clear all_ports_up flag if any link down */
+            if (link.link_status == ETH_LINK_DOWN) {
+                all_ports_up = 0;
+                break;
+            }
+        }
+        if (all_ports_up == 0) {
+            RTE_LOG(INFO, APP, ".");
+            rte_delay_ms(CHECK_INTERVAL);
+        }
+
+        /* set the print_flag if all ports up or timeout */
+        if (all_ports_up == 1 || count == (MAX_CHECK_TIME - 1)) {
+            RTE_LOG(INFO, APP, "Checking link status done\n");
+            break;
+        }
+    }
+}
+
 static int
 setup_queues(uint8_t port, struct core *cores, unsigned int ncores)
 {
@@ -434,6 +478,8 @@ setup_app(struct core *cores, int argc, char **argv)
             return -1;
         }
     }
+
+    check_ports_link_status(eth_dev_count);
 
     // Configuration for the master core is only used to setup ports.
     app_config_free(app_config);

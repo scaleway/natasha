@@ -174,48 +174,23 @@ check_ports_link_status(uint16_t port_max)
 static int
 setup_queues(uint8_t port, struct core *cores, unsigned int ncores)
 {
-    int ret;
-
+    char mempool_name[RTE_MEMZONE_NAMESIZE];
+    static const int rx_ring_size = 256;
+    static const int tx_ring_size = 512;
+    struct rte_mempool *mempool;
     int per_queue_stats_enabled;
-    uint16_t queue_id;
-    unsigned int core;
+    uint16_t queue_id = 0;
+    int rx_stats_idx;
+    int tx_stats_idx;
+    uint32_t core;
+    int socket;
+    int ret;
 
     per_queue_stats_enabled = support_per_queue_statistics(port);
 
-    /* Configure queues */
-    queue_id = 0;
     RTE_LCORE_FOREACH_SLAVE(core) {
-        static const int rx_ring_size = 256;
-        static const int tx_ring_size = 512;
-
-        static const struct rte_eth_rxconf rx_conf = {
-            .rx_thresh = {
-                .pthresh = 8,
-                .hthresh = 8,
-                .wthresh = 0,
-            },
-            .rx_free_thresh    = 32,
-            .rx_drop_en        = 0,
-            .rx_deferred_start = 0,
-        };
-
-        static const struct rte_eth_txconf tx_conf = {
-            .tx_thresh = {
-                .pthresh = 32,
-                .hthresh = 0,
-                .wthresh = 0,
-            },
-            .tx_rs_thresh      = 32,
-            .tx_free_thresh    = 32,
-            .txq_flags         = ETH_TXQ_FLAGS_NOMULTSEGS,
-            .tx_deferred_start = 0
-        };
-
-        struct rte_mempool *mempool;
-        char mempool_name[RTE_MEMZONE_NAMESIZE];
-        int socket;
-        const int rx_stats_idx = queue_id;
-        const int tx_stats_idx = queue_id + ncores - 1;
+        rx_stats_idx = queue_id;
+        tx_stats_idx = queue_id + ncores - 1;
 
         // NUMA socket of this processor
         socket = rte_lcore_to_socket_id(core);
@@ -238,7 +213,7 @@ setup_queues(uint8_t port, struct core *cores, unsigned int ncores)
 
         // RX queue
         ret = rte_eth_rx_queue_setup(port, queue_id, rx_ring_size, socket,
-                                     &rx_conf, mempool);
+                                     NULL, mempool);
         if (ret < 0) {
             RTE_LOG(ERR, APP,
                     "Port %i: failed to setup RX queue %i on core %i: %s\n",
@@ -260,7 +235,7 @@ setup_queues(uint8_t port, struct core *cores, unsigned int ncores)
 
         // TX queue
         ret = rte_eth_tx_queue_setup(port, queue_id, tx_ring_size, socket,
-                                     &tx_conf);
+                                     NULL);
         if (ret < 0) {
             RTE_LOG(ERR, APP,
                     "Port %i: failed to setup TX queue %i on core %i: %s\n",

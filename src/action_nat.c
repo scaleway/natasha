@@ -1,4 +1,5 @@
 #include <math.h>
+
 #include <rte_malloc.h>
 
 #include "natasha.h"
@@ -57,7 +58,7 @@ lookup_and_rewrite(struct rte_mbuf *pkt, uint32_t ***lookup_table, uint32_t ip,
         return -1; // Stop processing next rules
     }
 
-    *field = rte_cpu_to_be_32(res);
+    *field = res;
     return 0;
 }
 
@@ -276,7 +277,7 @@ add_rule_to_table(uint32_t ***t, uint32_t key, uint32_t value,
 }
 
 /*
- * Store NAT rules in nat_lookup.
+ * Store NAT rules in nat_lookup in network order.
  * @return
  *   - -1 on failure
  */
@@ -284,12 +285,17 @@ int
 add_rules_to_table(uint32_t ****nat_lookup, uint32_t int_ip, uint32_t ext_ip,
                    unsigned int socket_id)
 {
-    *nat_lookup = add_rule_to_table(*nat_lookup, int_ip, ext_ip, socket_id);
+    uint32_t ext_ip_formated = rte_cpu_to_be_32(ext_ip);
+    uint32_t int_ip_formated = rte_cpu_to_be_32(int_ip);
+
+    *nat_lookup = add_rule_to_table(*nat_lookup, int_ip,
+                                    ext_ip_formated, socket_id);
     if (nat_lookup == NULL) {
         return -1;
     }
 
-    *nat_lookup = add_rule_to_table(*nat_lookup, ext_ip, int_ip, socket_id);
+    *nat_lookup = add_rule_to_table(*nat_lookup, ext_ip,
+                                    int_ip_formated, socket_id);
     if (nat_lookup == NULL) {
         return -1;
     }

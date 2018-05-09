@@ -2,6 +2,7 @@
 
 #include <rte_errno.h>
 #include <rte_ethdev.h>
+#include <rte_cycles.h>
 
 #include "natasha.h"
 
@@ -9,6 +10,13 @@
 static int
 eth_stats(uint8_t port, int fd)
 {
+	uint64_t diff_pkts_rx, diff_pkts_tx, diff_cycles;
+	static uint64_t prev_bytes_rx, prev_bytes_tx;
+	static uint64_t prev_pkts_rx, prev_pkts_tx;
+	uint64_t diff_bytes_rx, diff_bytes_tx;
+	static uint64_t prev_cycles;
+	uint64_t pps_rx, pps_tx;
+	uint64_t bps_rx, bps_tx;
     struct rte_eth_stats stats;
 
     if (rte_eth_stats_get(port, &stats) != 0) {
@@ -56,6 +64,45 @@ eth_stats(uint8_t port, int fd)
             ++queue_id;
         }
     }
+
+    diff_cycles = prev_cycles;
+    prev_cycles = rte_rdtsc();
+    if (diff_cycles > 0)
+        diff_cycles = prev_cycles - diff_cycles;
+
+    diff_pkts_rx = (stats.ipackets > prev_pkts_rx) ?
+        (stats.ipackets - prev_pkts_rx) : 0;
+    diff_pkts_tx = (stats.opackets > prev_pkts_tx) ?
+        (stats.opackets - prev_pkts_tx) : 0;
+
+    prev_pkts_rx = stats.ipackets;
+    prev_pkts_tx = stats.opackets;
+
+    pps_rx = diff_cycles > 0 ?
+        diff_pkts_rx * rte_get_tsc_hz() / diff_cycles : 0;
+    pps_tx = diff_cycles > 0 ?
+        diff_pkts_tx * rte_get_tsc_hz() / diff_cycles : 0;
+
+    diff_bytes_rx = (stats.ibytes > prev_bytes_rx) ?
+        (stats.ibytes - prev_bytes_rx) : 0;
+    diff_bytes_tx = (stats.obytes > prev_bytes_tx) ?
+        (stats.obytes - prev_bytes_tx) : 0;
+
+    prev_bytes_rx = stats.ibytes;
+    prev_bytes_tx = stats.obytes;
+
+    bps_rx = diff_cycles > 0 ?
+        diff_bytes_rx * rte_get_tsc_hz() / diff_cycles : 0;
+    bps_tx = diff_cycles > 0 ?
+        diff_bytes_tx * rte_get_tsc_hz() / diff_cycles : 0;
+
+#define BYTES_TO_BITS   8
+    dprintf(fd, "Throughput (since last show)\n\n");
+    dprintf(fd, "RX:\t%12"PRIu64" PPS \t%12"PRIu64" bits/s\n",
+            pps_rx, bps_rx * BYTES_TO_BITS);
+    dprintf(fd, "TX:\t%12"PRIu64" PPS \t%12"PRIu64" bits/s\n",
+            pps_tx, bps_tx * BYTES_TO_BITS);
+
     return 0;
 }
 

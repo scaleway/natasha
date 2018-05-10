@@ -212,17 +212,13 @@ process_rules(struct app_config_node *node, struct rte_mbuf *pkt, uint8_t port,
  *   since it rewrites the padding to 0, which was already set to 0.
  */
 static inline void
-fix_nexus9000_padding_bug(struct rte_mbuf *pkt)
+fix_nexus9000_padding_bug(struct rte_mbuf *pkt, struct ipv4_hdr *ipv4_hdr)
 {
-    struct ipv4_hdr *ipv4_hdr;
-    uint16_t ipv4_len;
+    uint16_t ipv4_len = rte_be_to_cpu_16(ipv4_hdr->total_length);
     unsigned char *pkt_data;
     int padding_len;
 
-    ipv4_hdr = ipv4_header(pkt);
-    ipv4_len = rte_be_to_cpu_16(ipv4_hdr->total_length);
-
-    // pkt->pkt_len is at least bigger than a IPv4 packet, otherwise we
+        // pkt->pkt_len is at least bigger than a IPv4 packet, otherwise we
     // wouldn't be here since pkt would not have been recognized as a
     // ETHER_TYPE_IPv4 packet in core.c
     //
@@ -249,12 +245,10 @@ fix_nexus9000_padding_bug(struct rte_mbuf *pkt)
 int
 ipv4_handle(struct rte_mbuf *pkt, uint8_t port, struct core *core)
 {
+    struct ipv4_hdr *ipv4_hdr = ipv4_header(pkt);
     int ret;
-    struct ipv4_hdr *ipv4_hdr;
 
-    fix_nexus9000_padding_bug(pkt);
-
-    ipv4_hdr = ipv4_header(pkt);
+    fix_nexus9000_padding_bug(pkt, ipv4_hdr);
 
     // TTL exceeded, don't answer and free the packet
     if (unlikely(ipv4_hdr->time_to_live <= 1)) {

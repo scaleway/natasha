@@ -250,11 +250,12 @@ ipv4_handle(struct rte_mbuf *pkt, uint8_t port, struct core *core)
 
     fix_nexus9000_padding_bug(pkt, ipv4_hdr);
 
-    // TTL exceeded, don't answer and free the packet
-    if (unlikely(ipv4_hdr->time_to_live <= 1)) {
-        return -1;
-    }
-    ipv4_hdr->time_to_live--;
+    /* XXX: send a icmp error when ttl expires */
+    /* // TTL exceeded, don't answer and free the packet */
+    /* if (unlikely(ipv4_hdr->time_to_live <= 1)) { */
+    /*     return -1; */
+    /* } */
+    /* ipv4_hdr->time_to_live--; */
 
     if (unlikely(ipv4_hdr->next_proto_id == IPPROTO_ICMP)) {
         if ((ret = icmp_answer(pkt, port, core)) >= 0) {

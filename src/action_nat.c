@@ -25,20 +25,15 @@ nat_lookup_ip(uint32_t ***lookup_table, uint32_t ip, uint32_t *value)
     const int fstb = (ip >> 24) & 0xff;
     const int sndb = (ip >> 16) & 0xff;
     const int l2b = (ip & 0xff00) | (ip & 0xff);
-    uint32_t res;
 
     if (lookup_table == NULL ||
         lookup_table[fstb] == NULL ||
-        lookup_table[fstb][sndb] == NULL) {
-
+        lookup_table[fstb][sndb] == NULL ||
+        lookup_table[fstb][sndb][l2b] == 0)
         return -1;
-    }
 
-    res = lookup_table[fstb][sndb][l2b];
-    if (res == 0) {
-        return -1;
-    }
-    *value = res;
+    *value = lookup_table[fstb][sndb][l2b];
+
     return 0;
 }
 
@@ -50,15 +45,12 @@ static int
 lookup_and_rewrite(struct rte_mbuf *pkt, uint32_t ***lookup_table, uint32_t ip,
                    uint32_t *field)
 {
-    uint32_t res;
-
     // If ip not found in lookup_table
-    if (nat_lookup_ip(lookup_table, ip, &res) < 0) {
+    if (nat_lookup_ip(lookup_table, ip, field) < 0) {
         rte_pktmbuf_free(pkt);
         return -1; // Stop processing next rules
     }
 
-    *field = res;
     return 0;
 }
 

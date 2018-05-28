@@ -324,7 +324,7 @@ setup_port(uint8_t port, struct app_config *app_config, struct core *cores)
         },
     };
 
-    struct app_config_port_ip_addr *port_ip_addr;
+    struct port_ip_addr *port_ip_addr;
 
     rte_eth_dev_info_get(port, &dev_info);
     if ((dev_info.tx_offload_capa & DEV_TX_OFFLOAD_IPV4_CKSUM) == 0 ||

@@ -55,7 +55,7 @@
     struct ether_addr mac;
     struct ipv4_network ipv4_network;
     struct app_config_node *config_node;
-    struct app_config_port_ip_addr *port_ip_addrs;
+    struct port_ip_addr *port_ip_addrs;
 }
 
 /* Semantic values */
@@ -133,7 +133,7 @@ config_port:
     config_port_opt_mtu[mtu]
     config_port_opt_vlan[vlan] TOK_IP IPV4_ADDRESS[ip]
     config_port_extra_ips[next_ips] ';' {
-        struct app_config_port_ip_addr *port_ip;
+        struct port_ip_addr *port_ip;
 
         if ($port >= RTE_MAX_ETHPORTS) {
             yyerror(scanner, config, socket_id, "Invalid port number");
@@ -167,7 +167,7 @@ config_port_extra_ips:
         $$ = NULL;
     }
     | config_port_opt_vlan[vlan] TOK_IP IPV4_ADDRESS[ip] config_port_extra_ips[next] {
-        struct app_config_port_ip_addr *port_ip;
+        struct port_ip_addr *port_ip;
 
         port_ip = rte_zmalloc_socket(NULL, sizeof(*port_ip), 0, socket_id);
         CHECK_PTR(port_ip);

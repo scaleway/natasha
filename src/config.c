@@ -51,8 +51,8 @@ app_config_free(struct app_config *config)
 
     // Free ports IP addresses
     for (i = 0; i < sizeof(config->ports) / sizeof(*config->ports); ++i) {
-        struct app_config_port_ip_addr *ip;
-        struct app_config_port_ip_addr *next;
+        struct port_ip_addr *ip;
+        struct port_ip_addr *next;
 
         ip = config->ports[i].ip_addresses;
         while (ip) {

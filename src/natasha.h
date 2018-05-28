@@ -31,15 +31,17 @@ struct core;
 // Network port.
 struct ip_vlan {
     uint32_t ip;
-    int vlan;
+    uint16_t vlan;
 };
 
-struct app_config_port {
+struct port_ip_addr {
+    struct ip_vlan addr;
+    struct port_ip_addr *next;
+};
+
+struct port_config {
+    struct port_ip_addr *ip_addresses;
     int mtu;
-    struct app_config_port_ip_addr {
-        struct ip_vlan addr;
-        struct app_config_port_ip_addr *next;
-    } *ip_addresses;
 };
 
 // A condition, to specify whether an action should be processed or not.
@@ -84,14 +86,9 @@ struct nat_address {
     uint32_t address;
 };
 
+#define NATASHA_MAX_ETHPORTS    2
 struct app_config {
-
-    // If 1, this configuration has been used at least once and in case of
-    // reload (see config.c/app_config_relaod_all), old configuration is no
-    // longer used by the core and can safely be freed.
-    volatile int used;
-
-    struct app_config_port ports[RTE_MAX_ETHPORTS];
+    struct port_config ports[NATASHA_MAX_ETHPORTS];
 
     /*
      * Contain NAT rules. The rule "10.1.2.3 -> 212.10.11.12" is stored as
@@ -112,7 +109,13 @@ struct app_config {
     struct nat_address ***nat_lookup;
 
     struct app_config_node *rules;
-};
+
+    // If 1, this configuration has been used at least once and in case of
+    // reload (see config.c/app_config_relaod_all), old configuration is no
+    // longer used by the core and can safely be freed.
+    volatile int used;
+
+} __rte_cache_aligned;
 
 
 /*
@@ -127,23 +130,20 @@ struct rx_queue {
 #define MAX_TX_BURST 32
 // Network transmit queue.
 struct tx_queue {
-    uint16_t id;
-
     // Packets to send.
     struct rte_mbuf *pkts[MAX_TX_BURST];
-
+    uint16_t id;
     // Number of packets in pkts.
     uint16_t len;
 };
 
+#define NATASHA_MAX_QUEUES    16
 // A core and its queues. Each core has one rx queue and one tx queue per port.
 struct core {
-    int id;
-
     struct app_config *app_config;
-
-    struct rx_queue rx_queues[RTE_MAX_ETHPORTS];
-    struct tx_queue tx_queues[RTE_MAX_ETHPORTS];
+    struct rx_queue rx_queues[NATASHA_MAX_QUEUES];
+    struct tx_queue tx_queues[NATASHA_MAX_QUEUES];
+    uint32_t id;
 } __rte_cache_aligned;
 
 /*

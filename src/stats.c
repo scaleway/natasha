@@ -130,3 +130,54 @@ stats_reset(int fd)
     dprintf(fd, "Stats reset\n");
     return 0;
 }
+
+/*
+ * Display nat rules on stdout.
+ */
+int
+rules_display(int fd, struct core *cores)
+{
+
+    struct nat_address ***nat_lookup;
+    uint32_t from, to;
+    int i, j, k, core;
+
+    /*
+     * Use this loop just to get the first lcore slave and use it to get
+     * access to the shared app_config.
+     */
+    RTE_LCORE_FOREACH_SLAVE(core) {
+        nat_lookup = cores[core].app_config->nat_lookup;
+
+        if (nat_lookup == NULL) {
+            dprintf(fd, "Cannot access to shared memory\n");
+            return -1;
+        }
+
+        for (i = 0; i < lkp_fs; ++i) {
+            if (nat_lookup[i] == NULL)
+                continue;
+
+            for (j = 0; j < lkp_ss; ++j) {
+                if (nat_lookup[i][j] == NULL)
+                    continue;
+
+                for (k = 0; k < lkp_ts; ++k) {
+                    if (nat_lookup[i][j][k].address == 0)
+                        continue;
+
+                    from = ((i & 0xff) << 24) |
+                           ((j & 0xff) << 16) |
+                           (k & 0xffff);
+                    to = rte_be_to_cpu_32(nat_lookup[i][j][k].address);
+                    dprintf(fd,
+                            IPv4_FMT " -> " IPv4_FMT " \t%" PRIu64 " bytes\n",
+                            IPv4_FMTARGS(from), IPv4_FMTARGS(to),
+                            nat_lookup[i][j][k].bytes);
+                }
+            }
+        }
+        break;
+    }
+    return 0;
+}

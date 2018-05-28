@@ -79,6 +79,11 @@ static const int lkp_fs = 256; // 2^8
 static const int lkp_ss = 256; // 2^8
 static const int lkp_ts = 65536; // 2^16
 
+struct nat_address {
+    uint64_t bytes;
+    uint32_t address;
+};
+
 struct app_config {
 
     // If 1, this configuration has been used at least once and in case of
@@ -104,7 +109,7 @@ struct app_config {
      * - nat_lookup[212][10] = table of 65536 (2^16) int
      * - nat_lookup[212][10][11 << 16 & 12] = 10.1.2.3
      */
-    uint32_t ***nat_lookup;
+    struct nat_address ***nat_lookup;
 
     struct app_config_node *rules;
 };
@@ -156,6 +161,7 @@ int app_config_reload_all(struct core *cores, int argc, char **argv,
 // stats.c
 void stats_display(int fd);
 int stats_reset(int fd);
+int rules_display(int fd, struct core *cores);
 
 // pkt.c
 uint16_t tx_send(struct rte_mbuf *pkt, uint8_t port, struct tx_queue *queue);

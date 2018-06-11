@@ -55,12 +55,6 @@ command_stats(struct client *client, struct core *cores, int argc, char **argv)
 }
 
 static int
-command_rules(struct client *client, struct core *cores, int argc, char **argv)
-{
-    return rules_display(client->fd, cores);
-}
-
-static int
 command_reset(struct client *client, struct core *cores, int argc, char **argv)
 {
     stats_reset(client->fd);
@@ -79,7 +73,6 @@ run_command(struct client *client, struct core *cores, int argc, char **argv)
         {"help", command_help},
         {"reload", command_reload},
         {"stats", command_stats},
-        {"rules", command_rules},
         {"reset", command_reset},
     };
     size_t i;

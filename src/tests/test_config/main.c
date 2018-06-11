@@ -66,7 +66,7 @@ main(int argc, char **argv)
          i < sizeof(app_config->ports) / sizeof(*app_config->ports);
          ++i) {
 
-        struct app_config_port_ip_addr *port_ip_addr;
+        struct port_ip_addr *port_ip_addr;
 
         port_ip_addr = app_config->ports[i].ip_addresses;
         while (port_ip_addr) {

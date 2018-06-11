@@ -11,7 +11,7 @@ int
 is_natasha_port_ip(struct app_config *app_config, uint32_t ip, int vlan,
                    uint8_t port)
 {
-    struct app_config_port_ip_addr *ip_addr;
+    struct port_ip_addr *ip_addr;
 
     ip_addr = app_config->ports[port].ip_addresses;
     while (ip_addr) {

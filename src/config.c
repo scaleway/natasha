@@ -51,8 +51,8 @@ app_config_free(struct app_config *config)
 
     // Free ports IP addresses
     for (i = 0; i < sizeof(config->ports) / sizeof(*config->ports); ++i) {
-        struct app_config_port_ip_addr *ip;
-        struct app_config_port_ip_addr *next;
+        struct port_ip_addr *ip;
+        struct port_ip_addr *next;
 
         ip = config->ports[i].ip_addresses;
         while (ip) {
@@ -145,8 +145,8 @@ app_config_load(int argc, char **argv, unsigned int socket_id)
 
 /*
  * Whether or not the PMD supports per-queue statistics.
- * Currently, ixgbe supports them but not i40e (see DPDK source code at
- * drivers/net/i40e/i40e_ethdev.c:i40e_dev_queue_stats_mapping).
+ * Currently, ixgbe supports them but not i40e nor mlx5 (see DPDK documentation)
+ * this is a DIRTY workaround should be fixed asap.
  */
 int
 support_per_queue_statistics(uint8_t port)
@@ -154,7 +154,8 @@ support_per_queue_statistics(uint8_t port)
     struct rte_eth_dev_info dev_info;
 
     rte_eth_dev_info_get(port, &dev_info);
-    return !!strcmp(dev_info.driver_name, "net_i40e");
+    return !!strcmp(dev_info.driver_name, "net_i40e") &&
+	    !!strcmp(dev_info.driver_name, "net_mlx5");
 }
 
 /*

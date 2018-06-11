@@ -285,18 +285,12 @@ documentation. For natasha, we use the following values:
 
         - **rss_key_len**: set to 0 to use the default value.
 
-        - **rss_hf**: the different types of IPv6/IPv6 packets to which the RSS
-          hashing must be applied.
+        - **rss_hf**: the different types of layers (l3,l4) on which the RSS
+          hashing must be computed using specific fields.
 
-          We use ETH_RSS_IP to dispatch packets based on the source and
-          destination IP addresses.
-
-          Instead, we could use ETH_RSS_PROTO_xxx to include the source and
-          destination ports and to have a better dispatch, which implies the
-          necessity of reading more data from memory.
-
-          We didn't test if using ETH_RSS_PROTO_xxx affects performances, so we
-          stick with ETH_RSS_IP.
+          using ETH_RSS_IP alone is not upported by i40e and mlx5 so he had to
+          add ETH_RSS_UDP and ETH_RSS_TCP to enable packet steering by
+          computing a hash based on layer 3 and layer 4.
 
     - **vmdq_dcb_conf**: port VMDQ+DCB RX configuration (not set).
 

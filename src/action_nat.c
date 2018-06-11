@@ -1,4 +1,5 @@
 #include <math.h>
+
 #include <rte_malloc.h>
 
 #include "natasha.h"
@@ -18,26 +19,22 @@ static const int ICMP_TYPE_ERROR = 3;
  *  - -1 if ip is not in lookup_table.
  */
 static int
-nat_lookup_ip(uint32_t ***lookup_table, uint32_t ip, uint32_t *value)
+nat_lookup_ip(struct rte_mbuf *pkt, struct nat_address ***lookup_table, uint32_t ip, uint32_t *value)
 {
     // first byte, second byte, last 2 bytes
     const int fstb = (ip >> 24) & 0xff;
     const int sndb = (ip >> 16) & 0xff;
     const int l2b = (ip & 0xff00) | (ip & 0xff);
-    uint32_t res;
 
     if (lookup_table == NULL ||
         lookup_table[fstb] == NULL ||
-        lookup_table[fstb][sndb] == NULL) {
-
+        lookup_table[fstb][sndb] == NULL ||
+        lookup_table[fstb][sndb][l2b].address == 0)
         return -1;
-    }
 
-    res = lookup_table[fstb][sndb][l2b];
-    if (res == 0) {
-        return -1;
-    }
-    *value = res;
+    *value = lookup_table[fstb][sndb][l2b].address;
+    lookup_table[fstb][sndb][l2b].bytes += rte_pktmbuf_pkt_len(pkt);
+
     return 0;
 }
 
@@ -46,18 +43,15 @@ nat_lookup_ip(uint32_t ***lookup_table, uint32_t ip, uint32_t *value)
  * not found, drop `pkt`.
  */
 static int
-lookup_and_rewrite(struct rte_mbuf *pkt, uint32_t ***lookup_table, uint32_t ip,
+lookup_and_rewrite(struct rte_mbuf *pkt, struct nat_address ***lookup_table, uint32_t ip,
                    uint32_t *field)
 {
-    uint32_t res;
-
     // If ip not found in lookup_table
-    if (nat_lookup_ip(lookup_table, ip, &res) < 0) {
+    if (nat_lookup_ip(pkt, lookup_table, ip, field) < 0) {
         rte_pktmbuf_free(pkt);
         return -1; // Stop processing next rules
     }
 
-    *field = rte_cpu_to_be_32(res);
     return 0;
 }
 
@@ -107,6 +101,7 @@ action_nat_rewrite_impl(struct rte_mbuf *pkt, uint8_t port, struct core *core,
     struct icmp_hdr *icmp_hdr;
     struct ipv4_hdr *inner_ipv4_hdr;
     uint32_t *inner_ipv4_address;
+    uint32_t save_ipv4 = *address;
 
     // Rewrite IPv4 source or destination address.
     if (lookup_and_rewrite(pkt,
@@ -117,6 +112,19 @@ action_nat_rewrite_impl(struct rte_mbuf *pkt, uint8_t port, struct core *core,
     // processing rules for this packet (which has been freed by
     // lookup_and_rewrite()).
         return -1;
+    }
+
+    // Test is we have a fragmented packet and if it's the firest fragment
+    //if (unlikely(NATA_FIRST_FRAG(ipv4_hdr) && ipv4_hdr.next_proto_id == IPPROTO_UDP)) {
+    if (unlikely(NATA_FIRST_FRAG(ipv4_hdr))) {
+        if (ipv4_hdr->next_proto_id == IPPROTO_UDP) {
+            struct udp_hdr *udp_hdr = udp_header(pkt);
+            // recalculate the csum
+            udp_hdr->dgram_cksum -= save_ipv4 & 0xffff;
+            udp_hdr->dgram_cksum -= save_ipv4>>16 & 0xffff;
+            udp_hdr->dgram_cksum += *address & 0xffff;
+            udp_hdr->dgram_cksum += *address>>16 & 0xffff;
+        }
     }
 
     // pkt is probably not an ICMP packet, there is no need to handle it
@@ -204,7 +212,7 @@ action_nat_rewrite(struct rte_mbuf *pkt, uint8_t port, struct core *core, void *
  * Set all the IP addresses stored in the NAT lookup table t to -1.
  */
 void
-nat_reset_lookup_table(uint32_t ***t)
+nat_reset_lookup_table(struct nat_address ***t)
 {
     int i, j;
 
@@ -221,8 +229,8 @@ nat_reset_lookup_table(uint32_t ***t)
     }
 }
 
-static uint32_t ***
-add_rule_to_table(uint32_t ***t, uint32_t key, uint32_t value,
+static struct nat_address ***
+add_rule_to_table(struct nat_address ***t, uint32_t key, uint32_t value,
                   unsigned int socket_id)
 {
     // first byte, second byte, last 2 bytes
@@ -246,7 +254,8 @@ add_rule_to_table(uint32_t ***t, uint32_t key, uint32_t value,
     }
 
     if (t[fstb][sndb] == NULL) {
-        t[fstb][sndb] = rte_zmalloc_socket(NULL, lkp_ts * sizeof(***t), 0,
+        t[fstb][sndb] = rte_zmalloc_socket(NULL,
+                                           lkp_ts * sizeof(***t), 0,
                                            socket_id);
         if (t[fstb][sndb] == NULL) {
             rte_free(t[fstb]);
@@ -257,25 +266,30 @@ add_rule_to_table(uint32_t ***t, uint32_t key, uint32_t value,
         memset(t[fstb][sndb], 0, lkp_ts * sizeof(***t));
     }
 
-    t[fstb][sndb][l2b] = value;
+    t[fstb][sndb][l2b].address = value;
     return t;
 }
 
 /*
- * Store NAT rules in nat_lookup.
+ * Store NAT rules in nat_lookup in network order.
  * @return
  *   - -1 on failure
  */
 int
-add_rules_to_table(uint32_t ****nat_lookup, uint32_t int_ip, uint32_t ext_ip,
-                   unsigned int socket_id)
+add_rules_to_table(struct nat_address ****nat_lookup, uint32_t int_ip,
+                   uint32_t ext_ip, unsigned int socket_id)
 {
-    *nat_lookup = add_rule_to_table(*nat_lookup, int_ip, ext_ip, socket_id);
+    uint32_t ext_ip_formated = rte_cpu_to_be_32(ext_ip);
+    uint32_t int_ip_formated = rte_cpu_to_be_32(int_ip);
+
+    *nat_lookup = add_rule_to_table(*nat_lookup, int_ip,
+                                    ext_ip_formated, socket_id);
     if (nat_lookup == NULL) {
         return -1;
     }
 
-    *nat_lookup = add_rule_to_table(*nat_lookup, ext_ip, int_ip, socket_id);
+    *nat_lookup = add_rule_to_table(*nat_lookup, ext_ip,
+                                    int_ip_formated, socket_id);
     if (nat_lookup == NULL) {
         return -1;
     }
@@ -284,7 +298,7 @@ add_rules_to_table(uint32_t ****nat_lookup, uint32_t int_ip, uint32_t ext_ip,
 }
 
 static int
-nat_iter(uint32_t ***nat_lookup,
+nat_iter(struct nat_address ***nat_lookup,
          void (*func)(uint32_t from, uint32_t to, void *arg),
          void *data)
 {
@@ -307,13 +321,13 @@ nat_iter(uint32_t ***nat_lookup,
             }
 
             for (k = 0; k < lkp_ts; ++k) {
-                if (nat_lookup[i][j][k] == 0) {
+                if (nat_lookup[i][j][k].address == 0) {
                     continue ;
                 }
 
                 if (func) {
                     from = IPv4(i, j, (k >> 8) & 0xff, k & 0xff);
-                    to = nat_lookup[i][j][k];
+                    to = nat_lookup[i][j][k].address;
                     func(from, to, data);
                 }
                 ++n;
@@ -341,7 +355,7 @@ nat_dump_rule(uint32_t from, uint32_t to, void *arg)
  *  - Number of rules in nat_lookup.
  */
 int
-nat_dump_rules(int out_fd, uint32_t ***nat_lookup)
+nat_dump_rules(int out_fd, struct nat_address ***nat_lookup)
 {
     size_t size;
 
@@ -350,7 +364,7 @@ nat_dump_rules(int out_fd, uint32_t ***nat_lookup)
 }
 
 int
-nat_number_of_rules(uint32_t ***nat_lookup)
+nat_number_of_rules(struct nat_address ***nat_lookup)
 {
     return nat_iter(nat_lookup, NULL, NULL);
 }

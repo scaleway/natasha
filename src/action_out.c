@@ -43,6 +43,9 @@ action_out(struct rte_mbuf *pkt, uint8_t port, struct core *core, void *data)
     case IPPROTO_UDP: {
         struct udp_hdr *udp_hdr;
 
+        // Frags csum are calculated during action_nat_rewrite_impl()
+        if (unlikely(NATA_IS_FRAG(ipv4_hdr)))
+            break;
         udp_hdr = udp_header(pkt);
         udp_hdr->dgram_cksum = 0;
         pkt->ol_flags |= PKT_TX_UDP_CKSUM;
@@ -52,6 +55,9 @@ action_out(struct rte_mbuf *pkt, uint8_t port, struct core *core, void *data)
     case IPPROTO_ICMP: {
         struct icmp_hdr *icmp_hdr;
 
+        // Frags csum are calculated during action_nat_rewrite_impl()
+        if (unlikely(NATA_IS_FRAG(ipv4_hdr)))
+            break;
         icmp_hdr = icmp_header(pkt);
         icmp_hdr->icmp_cksum = 0;
         // ICMP checksum can't be offloaded.

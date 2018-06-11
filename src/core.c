@@ -10,9 +10,14 @@
 #include <rte_mempool.h>
 #include <rte_memzone.h>
 #include <rte_prefetch.h>
+#include <rte_version.h>
 
 #include "natasha.h"
 
+/* check DPDK version */
+#if RTE_VER_YEAR != 17 || RTE_VER_MONTH != 11
+#error The DPDK version you are using is not supported, please use DPDK v17.11
+#endif
 
 static int
 dispatch_packet(struct rte_mbuf *pkt, uint8_t port, struct core *core)
@@ -122,51 +127,70 @@ main_loop(void *pcore)
     return 0;
 }
 
+/* Check the link status of all ports in up to 9s, and print them finally */
+static void
+check_ports_link_status(uint16_t port_max)
+{
+#define MAX_CHECK_TIME 90 /* 9s (90 * 100ms) in total */
+#define CHECK_INTERVAL 100 /* 100ms */
+    uint8_t count, all_ports_up;
+    struct rte_eth_link link;
+    uint16_t portid;
+
+    RTE_LOG(INFO, APP, "Checking link status\n");
+    for (count = 0; count <= MAX_CHECK_TIME; count++) {
+        all_ports_up = 1;
+        for (portid = 0; portid < port_max; portid++) {
+            memset(&link, 0, sizeof(link));
+            rte_eth_link_get_nowait(portid, &link);
+            if (link.link_status)
+                RTE_LOG(INFO, APP,
+                        "Port%d Link Up. Speed %u Mbps - %s\n",
+                        portid, link.link_speed,
+                        (link.link_duplex == ETH_LINK_FULL_DUPLEX) ?
+                        ("full-duplex") : ("half-duplex\n"));
+            else
+                RTE_LOG(INFO, APP, "Port %d not ready yet.\n", portid);
+
+            /* clear all_ports_up flag if any link down */
+            if (link.link_status == ETH_LINK_DOWN) {
+                all_ports_up = 0;
+                break;
+            }
+        }
+        if (all_ports_up == 0) {
+            RTE_LOG(INFO, APP, ".");
+            rte_delay_ms(CHECK_INTERVAL);
+        }
+
+        /* set the print_flag if all ports up or timeout */
+        if (all_ports_up == 1 || count == (MAX_CHECK_TIME - 1)) {
+            RTE_LOG(INFO, APP, "Checking link status done\n");
+            break;
+        }
+    }
+}
+
 static int
 setup_queues(uint8_t port, struct core *cores, unsigned int ncores)
 {
-    int ret;
-
+    char mempool_name[RTE_MEMZONE_NAMESIZE];
+    static const int rx_ring_size = 256;
+    static const int tx_ring_size = 512;
+    struct rte_mempool *mempool;
     int per_queue_stats_enabled;
-    uint16_t queue_id;
-    unsigned int core;
+    uint16_t queue_id = 0;
+    int rx_stats_idx;
+    int tx_stats_idx;
+    uint32_t core;
+    int socket;
+    int ret;
 
     per_queue_stats_enabled = support_per_queue_statistics(port);
 
-    /* Configure queues */
-    queue_id = 0;
     RTE_LCORE_FOREACH_SLAVE(core) {
-        static const int rx_ring_size = 256;
-        static const int tx_ring_size = 512;
-
-        static const struct rte_eth_rxconf rx_conf = {
-            .rx_thresh = {
-                .pthresh = 8,
-                .hthresh = 8,
-                .wthresh = 0,
-            },
-            .rx_free_thresh    = 32,
-            .rx_drop_en        = 0,
-            .rx_deferred_start = 0,
-        };
-
-        static const struct rte_eth_txconf tx_conf = {
-            .tx_thresh = {
-                .pthresh = 32,
-                .hthresh = 0,
-                .wthresh = 0,
-            },
-            .tx_rs_thresh      = 32,
-            .tx_free_thresh    = 32,
-            .txq_flags         = ETH_TXQ_FLAGS_NOMULTSEGS,
-            .tx_deferred_start = 0
-        };
-
-        struct rte_mempool *mempool;
-        char mempool_name[RTE_MEMZONE_NAMESIZE];
-        int socket;
-        const int rx_stats_idx = queue_id;
-        const int tx_stats_idx = queue_id + ncores - 1;
+        rx_stats_idx = queue_id;
+        tx_stats_idx = queue_id + ncores - 1;
 
         // NUMA socket of this processor
         socket = rte_lcore_to_socket_id(core);
@@ -189,7 +213,7 @@ setup_queues(uint8_t port, struct core *cores, unsigned int ncores)
 
         // RX queue
         ret = rte_eth_rx_queue_setup(port, queue_id, rx_ring_size, socket,
-                                     &rx_conf, mempool);
+                                     NULL, mempool);
         if (ret < 0) {
             RTE_LOG(ERR, APP,
                     "Port %i: failed to setup RX queue %i on core %i: %s\n",
@@ -211,7 +235,7 @@ setup_queues(uint8_t port, struct core *cores, unsigned int ncores)
 
         // TX queue
         ret = rte_eth_tx_queue_setup(port, queue_id, tx_ring_size, socket,
-                                     &tx_conf);
+                                     NULL);
         if (ret < 0) {
             RTE_LOG(ERR, APP,
                     "Port %i: failed to setup TX queue %i on core %i: %s\n",
@@ -295,12 +319,12 @@ setup_port(uint8_t port, struct app_config *app_config, struct core *cores)
             .rss_conf  =  {
                 .rss_key     = NULL,
                 .rss_key_len = 0,
-                .rss_hf      = ETH_RSS_IP,
+                .rss_hf      = ETH_RSS_IP | ETH_RSS_TCP | ETH_RSS_UDP,
             },
         },
     };
 
-    struct app_config_port_ip_addr *port_ip_addr;
+    struct port_ip_addr *port_ip_addr;
 
     rte_eth_dev_info_get(port, &dev_info);
     if ((dev_info.tx_offload_capa & DEV_TX_OFFLOAD_IPV4_CKSUM) == 0 ||
@@ -429,6 +453,8 @@ setup_app(struct core *cores, int argc, char **argv)
             return -1;
         }
     }
+
+    check_ports_link_status(eth_dev_count);
 
     // Configuration for the master core is only used to setup ports.
     app_config_free(app_config);

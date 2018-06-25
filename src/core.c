@@ -172,12 +172,15 @@ check_ports_link_status(uint16_t port_max)
 }
 
 int
-set_tx_vlan_offload(uint8_t port_id, struct rte_eth_txconf *txq_conf)
+set_vlan_offload(uint8_t port_id, struct rte_eth_txconf *txq_conf,
+                 struct rte_eth_rxconf *rxq_conf)
 {
     struct rte_eth_dev_info dev_info;
     int vlan_offloads;
 
+    rte_eth_dev_info_get(port_id, &dev_info);
     *txq_conf = dev_info.default_txconf;
+    *rxq_conf = dev_info.default_rxconf;
     vlan_offloads = rte_eth_dev_get_vlan_offload(port_id);
     if (vlan_offloads & ETH_VLAN_EXTEND_OFFLOAD) {
         RTE_LOG(ERR, APP,
@@ -185,15 +188,17 @@ set_tx_vlan_offload(uint8_t port_id, struct rte_eth_txconf *txq_conf)
         return -1;
     }
 
-    rte_eth_dev_info_get(port_id, &dev_info);
     if (!(dev_info.tx_offload_capa & DEV_TX_OFFLOAD_VLAN_INSERT)) {
         RTE_LOG(ERR, APP, "Cannot set tx vlan offload: not supported.\n");
         return -1;
     }
-    /* enable offloads */
+    /* enable tx vlan offloads */
     txq_conf->txq_flags &= ~ETH_TXQ_FLAGS_NOOFFLOADS;
     txq_conf->offloads |= DEV_TX_OFFLOAD_VLAN_INSERT;
 
+    /* enable rx vlan offloads */
+    rxq_conf->offloads |= (DEV_RX_OFFLOAD_VLAN_FILTER |
+                           DEV_RX_OFFLOAD_VLAN_STRIP);
     return 0;
 }
 
@@ -205,6 +210,7 @@ setup_queues(uint8_t port, struct core *cores, unsigned int ncores,
     static const int rx_ring_size = 256;
     static const int tx_ring_size = 512;
     struct rte_eth_txconf txq_conf;
+    struct rte_eth_rxconf rxq_conf;
     struct rte_mempool *mempool;
     int per_queue_stats_enabled;
     uint16_t queue_id = 0;
@@ -215,7 +221,7 @@ setup_queues(uint8_t port, struct core *cores, unsigned int ncores,
     int ret;
 
     per_queue_stats_enabled = support_per_queue_statistics(port);
-    if (enable_vlan_offload && set_tx_vlan_offload(port, &txq_conf))
+    if (enable_vlan_offload && set_vlan_offload(port, &txq_conf, &rxq_conf))
         return -1;
 
     RTE_LCORE_FOREACH_SLAVE(core) {

@@ -171,12 +171,40 @@ check_ports_link_status(uint16_t port_max)
     }
 }
 
+int
+set_tx_vlan_offload(uint8_t port_id, struct rte_eth_txconf *txq_conf)
+{
+    struct rte_eth_dev_info dev_info;
+    int vlan_offloads;
+
+    *txq_conf = dev_info.default_txconf;
+    vlan_offloads = rte_eth_dev_get_vlan_offload(port_id);
+    if (vlan_offloads & ETH_VLAN_EXTEND_OFFLOAD) {
+        RTE_LOG(ERR, APP,
+                "Cannot set tx vlan offload: QinQ has been enabled.\n");
+        return -1;
+    }
+
+    rte_eth_dev_info_get(port_id, &dev_info);
+    if (!(dev_info.tx_offload_capa & DEV_TX_OFFLOAD_VLAN_INSERT)) {
+        RTE_LOG(ERR, APP, "Cannot set tx vlan offload: not supported.\n");
+        return -1;
+    }
+    /* enable offloads */
+    txq_conf->txq_flags &= ~ETH_TXQ_FLAGS_NOOFFLOADS;
+    txq_conf->offloads |= DEV_TX_OFFLOAD_VLAN_INSERT;
+
+    return 0;
+}
+
 static int
-setup_queues(uint8_t port, struct core *cores, unsigned int ncores)
+setup_queues(uint8_t port, struct core *cores, unsigned int ncores,
+             int enable_vlan_offload)
 {
     char mempool_name[RTE_MEMZONE_NAMESIZE];
     static const int rx_ring_size = 256;
     static const int tx_ring_size = 512;
+    struct rte_eth_txconf txq_conf;
     struct rte_mempool *mempool;
     int per_queue_stats_enabled;
     uint16_t queue_id = 0;
@@ -187,6 +215,8 @@ setup_queues(uint8_t port, struct core *cores, unsigned int ncores)
     int ret;
 
     per_queue_stats_enabled = support_per_queue_statistics(port);
+    if (enable_vlan_offload && set_tx_vlan_offload(port, &txq_conf))
+        return -1;
 
     RTE_LCORE_FOREACH_SLAVE(core) {
         rx_stats_idx = queue_id;
@@ -235,7 +265,7 @@ setup_queues(uint8_t port, struct core *cores, unsigned int ncores)
 
         // TX queue
         ret = rte_eth_tx_queue_setup(port, queue_id, tx_ring_size, socket,
-                                     NULL);
+                                     &txq_conf);
         if (ret < 0) {
             RTE_LOG(ERR, APP,
                     "Port %i: failed to setup TX queue %i on core %i: %s\n",
@@ -289,6 +319,7 @@ setup_port(uint8_t port, struct app_config *app_config, struct core *cores)
     int ret;
 
     struct rte_eth_dev_info dev_info;
+    int enable_vlan_offload = 0;
     unsigned int ncores;
     uint16_t nqueues;
     struct rte_eth_conf eth_conf = {
@@ -357,20 +388,20 @@ setup_port(uint8_t port, struct app_config *app_config, struct core *cores)
     port_ip_addr = app_config->ports[port].ip_addresses;
     while (port_ip_addr) {
 
-        if (port_ip_addr->addr.vlan &&
-            rte_eth_dev_vlan_filter(port, port_ip_addr->addr.vlan, 1) < 0) {
-
-            RTE_LOG(ERR, APP,
-                    "Failed to filter traffic on vlan %i for port %i\n",
-                    port_ip_addr->addr.vlan, port);
-            return -1;
+        if (port_ip_addr->addr.vlan) {
+            if(rte_eth_dev_vlan_filter(port, port_ip_addr->addr.vlan, 1) < 0) {
+                RTE_LOG(ERR, APP,
+                        "Failed to filter traffic on vlan %i for port %i\n",
+                        port_ip_addr->addr.vlan, port);
+                return -1;
+            }
+            enable_vlan_offload = 1;
         }
-
         port_ip_addr = port_ip_addr->next;
     }
 
     // Configure network queues
-    ret = setup_queues(port, cores, ncores);
+    ret = setup_queues(port, cores, ncores, enable_vlan_offload);
     if (ret < 0) {
         RTE_LOG(ERR, APP, "Port %i: unable to setup network queues\n", port);
         return ret;

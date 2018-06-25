@@ -15,8 +15,8 @@
 #include "natasha.h"
 
 /* check DPDK version */
-#if RTE_VER_YEAR != 17 || RTE_VER_MONTH != 11
-#error The DPDK version you are using is not supported, please use DPDK v17.11
+#if RTE_VER_YEAR != 18 || RTE_VER_MONTH != 02
+#error The DPDK version you are using is not supported, please use DPDK v18.02
 #endif
 
 static int

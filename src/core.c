@@ -26,6 +26,13 @@ dispatch_packet(struct rte_mbuf *pkt, uint8_t port, struct core *core)
     uint16_t eth_type;
     int status;
 
+    /* Drop only bad l3 checksumed packet earlier in the stack */
+    if (unlikely((pkt->ol_flags & PKT_RX_IP_CKSUM_MASK) ==
+                 PKT_RX_IP_CKSUM_BAD)) {
+        rte_pktmbuf_free(pkt);
+        return -1;
+    }
+
     eth_hdr = rte_pktmbuf_mtod(pkt, struct ether_hdr *);
     eth_type = eth_hdr->ether_type;
 
@@ -172,15 +179,14 @@ check_ports_link_status(uint16_t port_max)
 }
 
 int
-set_vlan_offload(uint8_t port_id, struct rte_eth_txconf *txq_conf,
+set_vlan_offload(uint8_t port_id, struct rte_eth_dev_info *dev_info,
+                 struct rte_eth_txconf *txq_conf,
                  struct rte_eth_rxconf *rxq_conf)
 {
-    struct rte_eth_dev_info dev_info;
     int vlan_offloads;
 
-    rte_eth_dev_info_get(port_id, &dev_info);
-    *txq_conf = dev_info.default_txconf;
-    *rxq_conf = dev_info.default_rxconf;
+    *txq_conf = dev_info->default_txconf;
+    *rxq_conf = dev_info->default_rxconf;
     vlan_offloads = rte_eth_dev_get_vlan_offload(port_id);
     if (vlan_offloads & ETH_VLAN_EXTEND_OFFLOAD) {
         RTE_LOG(ERR, APP,
@@ -188,7 +194,7 @@ set_vlan_offload(uint8_t port_id, struct rte_eth_txconf *txq_conf,
         return -1;
     }
 
-    if (!(dev_info.tx_offload_capa & DEV_TX_OFFLOAD_VLAN_INSERT)) {
+    if (!(dev_info->tx_offload_capa & DEV_TX_OFFLOAD_VLAN_INSERT)) {
         RTE_LOG(ERR, APP, "Cannot set tx vlan offload: not supported.\n");
         return -1;
     }
@@ -202,6 +208,22 @@ set_vlan_offload(uint8_t port_id, struct rte_eth_txconf *txq_conf,
     return 0;
 }
 
+int
+set_rx_chksum_offload(uint8_t port_id, struct rte_eth_dev_info *dev_info,
+                      struct rte_eth_rxconf *rxq_conf)
+{
+
+    /* checking rx ip/udp/tcp offloads */
+    if (!(dev_info->rx_offload_capa & DEV_RX_OFFLOAD_CHECKSUM)) {
+        RTE_LOG(INFO, APP,
+                "Rx checksum offloads not supported by port %" PRIu8 ",\n",
+                port_id);
+        return -1;
+    }
+    rxq_conf->offloads |= DEV_RX_OFFLOAD_CHECKSUM;
+
+    return 0;
+}
 static int
 setup_queues(uint8_t port, struct core *cores, unsigned int ncores,
              int enable_vlan_offload)
@@ -209,6 +231,7 @@ setup_queues(uint8_t port, struct core *cores, unsigned int ncores,
     char mempool_name[RTE_MEMZONE_NAMESIZE];
     static const int rx_ring_size = 256;
     static const int tx_ring_size = 512;
+    struct rte_eth_dev_info dev_info;
     struct rte_eth_txconf txq_conf;
     struct rte_eth_rxconf rxq_conf;
     struct rte_mempool *mempool;
@@ -220,9 +243,14 @@ setup_queues(uint8_t port, struct core *cores, unsigned int ncores,
     int socket;
     int ret;
 
+    rte_eth_dev_info_get(port, &dev_info);
     per_queue_stats_enabled = support_per_queue_statistics(port);
-    if (enable_vlan_offload && set_vlan_offload(port, &txq_conf, &rxq_conf))
+    if (enable_vlan_offload && set_vlan_offload(port, &dev_info, &txq_conf,
+                                                &rxq_conf))
         return -1;
+    if (set_rx_chksum_offload(port, &dev_info, &rxq_conf))
+        RTE_LOG(INFO, APP,
+                "Rx checksum offloads not enabled on port %" PRIu8 ",\n", port);
 
     RTE_LCORE_FOREACH_SLAVE(core) {
         rx_stats_idx = queue_id;
@@ -249,7 +277,7 @@ setup_queues(uint8_t port, struct core *cores, unsigned int ncores,
 
         // RX queue
         ret = rte_eth_rx_queue_setup(port, queue_id, rx_ring_size, socket,
-                                     NULL, mempool);
+                                     &rxq_conf, mempool);
         if (ret < 0) {
             RTE_LOG(ERR, APP,
                     "Port %i: failed to setup RX queue %i on core %i: %s\n",

@@ -3,6 +3,7 @@
 
 #include <rte_ethdev.h>
 #include <rte_rwlock.h>
+#include <rte_malloc.h>
 
 /*
  * Logging configuration.
@@ -27,6 +28,20 @@
 
 // Forward declaration. Defined under "Workers and queues configuration".
 struct core;
+
+/*
+ * Structure for nat related statistics
+ * These stats SHOULD be kept per core.
+ */
+struct nat_stats {
+    uint64_t drop_no_rule;              /* the most used stat */
+    uint32_t drop_nat_condition;
+    uint32_t drop_bad_l3_cksum;
+    uint32_t rx_bad_l4_cksum;
+    uint32_t drop_unknown_icmp;
+    uint32_t drop_unhandled_ethertype;
+    uint32_t drop_tx_notsent;
+};
 
 // Network port.
 struct ip_vlan {
@@ -143,6 +158,7 @@ struct core {
     struct app_config *app_config;
     struct rx_queue rx_queues[NATASHA_MAX_QUEUES];
     struct tx_queue tx_queues[NATASHA_MAX_QUEUES];
+    struct nat_stats *stats;
     uint32_t id;
 } __rte_cache_aligned;
 
@@ -160,11 +176,14 @@ int app_config_reload_all(struct core *cores, int argc, char **argv,
 
 // stats.c
 void stats_display(int fd);
+void xstats_display(int fd, struct core *cores);
 int stats_reset(int fd);
 
 // pkt.c
-uint16_t tx_send(struct rte_mbuf *pkt, uint8_t port, struct tx_queue *queue);
-uint16_t tx_flush(uint8_t port, struct tx_queue *queue);
+uint16_t tx_send(struct rte_mbuf *pkt, uint8_t port, struct tx_queue *queue,
+                  struct nat_stats *stats);
+uint16_t tx_flush(uint8_t port, struct tx_queue *queue,
+                  struct nat_stats *stats);
 
 int is_natasha_ip(struct app_config *app_config,
                   uint32_t ip, int vlan);

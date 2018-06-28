@@ -71,7 +71,7 @@ arp_request(struct rte_mbuf *pkt, uint8_t port, struct core *core)
         VLAN_ID(pkt)
     );
 
-    return tx_send(pkt, port, &core->tx_queues[port]);
+    return tx_send(pkt, port, &core->tx_queues[port], core->stats);
 }
 
 int

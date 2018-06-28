@@ -42,7 +42,7 @@ icmp_echo(struct rte_mbuf *pkt, uint8_t port, struct core *core)
         rte_be_to_cpu_16(ipv4_hdr->total_length) - sizeof(*ipv4_hdr)
     );
 
-    return tx_send(pkt, port, &core->tx_queues[port]);
+    return tx_send(pkt, port, &core->tx_queues[port], core->stats);
 }
 
 /*
@@ -92,6 +92,7 @@ icmp_answer(struct rte_mbuf *pkt, uint8_t port, struct core *core)
     // Even if we can't handle pkt, it is addressed to us. Drop it and
     // return 0 to mark it as processed.
     if (icmp_dispatch(pkt, port, core) < 0) {
+        core->stats->drop_unknown_icmp++;
         rte_pktmbuf_free(pkt);
     }
     return 0;

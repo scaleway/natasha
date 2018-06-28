@@ -72,6 +72,6 @@ action_out(struct rte_mbuf *pkt, uint8_t port, struct core *core, void *data)
         break ;
     }
 
-    tx_send(pkt, out->port, &core->tx_queues[out->port]);
+    tx_send(pkt, out->port, &core->tx_queues[out->port], core->stats);
     return -1; // Stop processing rules
 }

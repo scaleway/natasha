@@ -107,7 +107,7 @@ eth_stats(uint8_t port, int fd)
 }
 
 /*
- * Display ports and queues statistics on stdout.
+ * Display DPDK ports and queues statistics on stdout.
  */
 void
 stats_display(int fd)
@@ -117,6 +117,44 @@ stats_display(int fd)
     for (port = 0; port < rte_eth_dev_count(); ++port) {
         eth_stats(port, fd);
     }
+}
+
+/*
+ * Display NATASHA application statistics.
+ */
+void
+xstats_display(int fd, struct core *cores)
+{
+    struct nat_stats global_stats, *s;
+    uint8_t coreid;
+
+    memset(&global_stats, 0, sizeof(global_stats));
+    RTE_LCORE_FOREACH_SLAVE(coreid) {
+        s = cores[coreid].stats;
+        dprintf(fd, "Core%u:\t"
+                "drop_no_rule=%" PRId64 ", drop_nat_condition=%u, "
+                "drop_tx_notsent=%u, drop_bad_l3_cksum=%u, "
+                "rx_bad_l4_cksum=%u, drop_unhandled_ethertype=%u, "
+                "drop_unknown_icmp=%u\n", coreid,
+                s->drop_no_rule, s->drop_nat_condition, s->drop_tx_notsent,
+                s->drop_bad_l3_cksum, s->rx_bad_l4_cksum,
+                s->drop_unhandled_ethertype, s->drop_unknown_icmp);
+        global_stats.drop_no_rule               += s->drop_no_rule;
+        global_stats.drop_nat_condition         += s->drop_nat_condition;
+        global_stats.drop_tx_notsent            += s->drop_tx_notsent;
+        global_stats.drop_bad_l3_cksum          += s->drop_bad_l3_cksum;
+        global_stats.rx_bad_l4_cksum            += s->rx_bad_l4_cksum;
+        global_stats.drop_unknown_icmp          += s->drop_unknown_icmp;
+        global_stats.drop_unhandled_ethertype   += s->drop_unhandled_ethertype;
+    }
+    dprintf(fd, "Global:\t"
+            "drop_no_rule=%" PRId64 ", drop_nat_condition=%u, "
+            "drop_tx_notsent=%u, drop_bad_l3_cksum=%u, rx_bad_l4_cksum=%u,"
+            " drop_unhandled_ethertype=%u, drop_unknown_icmp=%u\n",
+            global_stats.drop_no_rule, global_stats.drop_nat_condition,
+            global_stats.drop_tx_notsent, global_stats.drop_bad_l3_cksum,
+            global_stats.rx_bad_l4_cksum, global_stats.drop_unknown_icmp,
+            global_stats.drop_unhandled_ethertype);
 }
 
 int

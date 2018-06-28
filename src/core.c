@@ -29,9 +29,12 @@ dispatch_packet(struct rte_mbuf *pkt, uint8_t port, struct core *core)
     /* Drop only bad l3 checksumed packet earlier in the stack */
     if (unlikely((pkt->ol_flags & PKT_RX_IP_CKSUM_MASK) ==
                  PKT_RX_IP_CKSUM_BAD)) {
+        core->stats->drop_bad_l3_cksum++;
         rte_pktmbuf_free(pkt);
         return -1;
     }
+    if (unlikely((pkt->ol_flags & PKT_RX_L4_CKSUM_MASK) == PKT_RX_L4_CKSUM_BAD))
+        core->stats->rx_bad_l4_cksum++;
 
     eth_hdr = rte_pktmbuf_mtod(pkt, struct ether_hdr *);
     eth_type = eth_hdr->ether_type;
@@ -70,6 +73,7 @@ dispatch_packet(struct rte_mbuf *pkt, uint8_t port, struct core *core)
     }
 
     if (status < 0) {
+        core->stats->drop_unhandled_ethertype++;
         rte_pktmbuf_free(pkt);
     }
 
@@ -128,7 +132,7 @@ main_loop(void *pcore)
 
         for (port = 0; port < eth_dev_count; ++port) {
             // Write out packets.
-            tx_flush(port, &core->tx_queues[port]);
+            tx_flush(port, &core->tx_queues[port], core->stats);
         }
     }
     return 0;
@@ -470,6 +474,20 @@ run_workers(struct core *cores)
     return 0;
 }
 
+inline
+struct nat_stats *init_nat_stats(void) {
+    struct nat_stats *stats;
+
+    /* alloc memory initialized with zeros */
+    stats = rte_zmalloc("nat stats", sizeof(*stats), 0);
+    if (stats == NULL) {
+        RTE_LOG(EMERG, APP, "nat stats zmalloc failed\n");
+        return NULL;
+    }
+
+    return stats;
+}
+
 /*
  * Initialize Ethernet ports and workers.
  */
@@ -528,6 +546,12 @@ setup_app(struct core *cores, int argc, char **argv)
     RTE_LCORE_FOREACH_SLAVE(core) {
         cores[core].id = core;
         memset(&cores[core].app_config, 0, sizeof(cores[core].app_config));
+        /* init natasha stats per core */
+        cores[core].stats = init_nat_stats();
+        if (!cores[core].stats) {
+            RTE_LOG(ERR, APP, "Cannot init per core stats\n");
+            return -1;
+        }
     }
 
     // Load the configuration for each worker

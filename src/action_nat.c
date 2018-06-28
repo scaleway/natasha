@@ -110,6 +110,7 @@ action_nat_rewrite_impl(struct rte_mbuf *pkt, uint8_t port, struct core *core,
     // If the `address`is not in lookup table, it's an error and we should stop
     // processing rules for this packet (which has been freed by
     // lookup_and_rewrite()).
+        core->stats->drop_no_rule++;
         return -1;
     }
 
@@ -169,6 +170,7 @@ action_nat_rewrite_impl(struct rte_mbuf *pkt, uint8_t port, struct core *core,
                            core->app_config->nat_lookup,
                            rte_be_to_cpu_32(*inner_ipv4_address),
                            inner_ipv4_address) < 0) {
+        core->stats->drop_no_rule++;
         return -1;
     }
 

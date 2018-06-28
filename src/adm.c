@@ -28,7 +28,8 @@ command_help(struct client *client, struct core *cores, int argc, char **argv)
             "  exit, quit: close the connection\n"
             "        help: show this message\n"
             "      reload: reload configuration\n"
-            "       stats: print ports and queues statistics\n"
+            "       stats: print DPDK ports and queues statistics\n"
+            "       xstats: print NATASHA statistics\n"
             "       reset: reset statistics\n");
     return 0;
 }
@@ -55,6 +56,13 @@ command_stats(struct client *client, struct core *cores, int argc, char **argv)
 }
 
 static int
+command_xstats(struct client *client, struct core *cores, int argc, char **argv)
+{
+    xstats_display(client->fd, cores);
+    return 0;
+}
+
+static int
 command_reset(struct client *client, struct core *cores, int argc, char **argv)
 {
     stats_reset(client->fd);
@@ -73,6 +81,7 @@ run_command(struct client *client, struct core *cores, int argc, char **argv)
         {"help", command_help},
         {"reload", command_reload},
         {"stats", command_stats},
+        {"xstats", command_xstats},
         {"reset", command_reset},
     };
     size_t i;

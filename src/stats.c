@@ -125,10 +125,15 @@ stats_display(int fd)
 void
 xstats_display(int fd, struct core *cores)
 {
+    struct rte_eth_xstat_name *xstats_names;
     struct nat_stats global_stats, *s;
+    struct rte_eth_xstat *xstats;
+    int cnt_xstats, idx_xstat;
     uint8_t coreid;
+    uint8_t portid;
 
     memset(&global_stats, 0, sizeof(global_stats));
+    dprintf(fd, " --- NATASHA stats ---\n");
     RTE_LCORE_FOREACH_SLAVE(coreid) {
         s = cores[coreid].stats;
         dprintf(fd, "Core%u:\t"
@@ -155,6 +160,65 @@ xstats_display(int fd, struct core *cores)
             global_stats.drop_tx_notsent, global_stats.drop_bad_l3_cksum,
             global_stats.rx_bad_l4_cksum, global_stats.drop_unknown_icmp,
             global_stats.drop_unhandled_ethertype);
+
+    for (portid = 0; portid < rte_eth_dev_count(); ++portid) {
+        /* print common stats */
+        eth_stats(portid, fd);
+
+        if (!rte_eth_dev_is_valid_port(portid)) {
+            RTE_LOG(INFO, APP, "Error: Invalid port number %i\n", portid);
+            return;
+        }
+
+        /* Get count */
+        cnt_xstats = rte_eth_xstats_get_names(portid, NULL, 0);
+        if (cnt_xstats  < 0) {
+            RTE_LOG(INFO, APP, "Error: Cannot get count of xstats\n");
+            return;
+        }
+
+        /* Get id-name lookup table */
+        xstats_names = malloc(sizeof(struct rte_eth_xstat_name) * cnt_xstats);
+        if (xstats_names == NULL) {
+            RTE_LOG(INFO, APP, "Cannot allocate memory for xstats lookup\n");
+            return;
+        }
+        if (cnt_xstats != rte_eth_xstats_get_names(portid, xstats_names, cnt_xstats)) {
+            RTE_LOG(INFO, APP, "Error: Cannot get xstats lookup\n");
+            free(xstats_names);
+            return;
+        }
+
+        /* Get stats themselves */
+        xstats = malloc(sizeof(struct rte_eth_xstat) * cnt_xstats);
+        if (xstats == NULL) {
+            RTE_LOG(INFO, APP, "Cannot allocate memory for xstats\n");
+            free(xstats_names);
+            return;
+        }
+        if (cnt_xstats != rte_eth_xstats_get(portid, xstats, cnt_xstats)) {
+            RTE_LOG(INFO, APP, "Error: Unable to get xstats\n");
+            free(xstats_names);
+            free(xstats);
+            return;
+        }
+
+        dprintf(fd, " --- DPDK extra stats ---\n");
+        dprintf(fd, "Port %d: ", portid);
+        /* Display non zero xstats */
+        for (idx_xstat = 0; idx_xstat < (cnt_xstats - 1); idx_xstat++) {
+            if (xstats[idx_xstat].value)
+                dprintf(fd, "%s=%"PRIu64",",
+                        xstats_names[idx_xstat].name,
+                        xstats[idx_xstat].value);
+        }
+        if (xstats[idx_xstat].value)
+            dprintf(fd, "%s=%"PRIu64"\n",
+                    xstats_names[idx_xstat].name,
+                    xstats[idx_xstat].value);
+        free(xstats_names);
+        free(xstats);
+    }
 }
 
 int

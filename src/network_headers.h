@@ -10,6 +10,8 @@
 #include <rte_tcp.h>
 #include <rte_udp.h>
 
+/* include linux headers for extra definitions */
+#include <linux/icmp.h>
 
 static inline struct ether_hdr *
 eth_header(struct rte_mbuf *pkt)

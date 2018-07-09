@@ -6,12 +6,6 @@
 #include "network_headers.h"
 #include "actions.h"
 
-
-// As defined in the ICMP RFC https://tools.ietf.org/html/rfc792 an error has
-// the type 3.
-static const int ICMP_TYPE_ERROR = 3;
-
-
 /*
  * Search for ip in the NAT lookup table, and store the result in value.
  *
@@ -135,11 +129,11 @@ action_nat_rewrite_impl(struct rte_mbuf *pkt, uint8_t port, struct core *core,
 
     icmp_hdr = icmp_header(pkt);
 
-    // If it an ICMP packet, it is probably not an error and there is no need
-    // to handle it specifically.
-    if (likely(icmp_hdr->icmp_type != ICMP_TYPE_ERROR)) {
+    /* no need to handle other type that are not affected by nat */
+    if (likely(icmp_hdr->icmp_type != ICMP_DEST_UNREACH &&
+               icmp_hdr->icmp_type != ICMP_TIME_EXCEEDED &&
+               icmp_hdr->icmp_type != ICMP_PARAMETERPROB))
         return 0;
-    }
 
     // If pkt is actually an ICMP error, let's rewrite the inner IP packet. If
     // the outer packet is not large enough to contain a full IPv4 header, then

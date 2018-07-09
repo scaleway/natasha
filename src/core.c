@@ -14,6 +14,9 @@
 #include <rte_memzone.h>
 #include <rte_prefetch.h>
 #include <rte_version.h>
+#ifdef RTE_LIBRTE_PDUMP
+#include <rte_pdump.h>
+#endif
 
 #include "natasha.h"
 
@@ -576,7 +579,9 @@ natasha_exit()
         RTE_LOG(ERR, APP, "No network device using DPDK-compatible driver\n");
         return;
     }
-
+#ifdef RTE_LIBRTE_PDUMP
+        rte_pdump_uninit();
+#endif
     for (portid = 0; portid < eth_dev_count; ++portid) {
         RTE_LOG(INFO, APP, "Stopping port %i...\n", portid);
         rte_eth_dev_stop(portid);
@@ -635,6 +640,10 @@ natasha(int argc, char **argv)
     argc -= ret;
     argv += ret;
 
+#ifdef RTE_LIBRTE_PDUMP
+    RTE_LOG(INFO, APP, "Initialize packet capture framework\n");
+    rte_pdump_init(NULL);
+#endif
     if (setup_app(cores, argc, argv) < 0) {
         rte_exit(EXIT_FAILURE, "Unable to setup app\n");
     }

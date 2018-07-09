@@ -1,6 +1,8 @@
 #ifndef CORE_H_
 #define CORE_H_
 
+#include <stdbool.h>
+
 #include <rte_ethdev.h>
 #include <rte_rwlock.h>
 #include <rte_malloc.h>
@@ -25,6 +27,9 @@
 /*
  * Application configuration.
  */
+
+/* Variable used to stop slaves mainloop */
+volatile bool force_quit;
 
 // Forward declaration. Defined under "Workers and queues configuration".
 struct core;

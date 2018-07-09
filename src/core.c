@@ -1,5 +1,8 @@
 #include <fcntl.h>
 #include <unistd.h>
+#include <signal.h>
+#include <string.h>
+#include <stdbool.h>
 
 #include <rte_common.h>
 #include <rte_cycles.h>
@@ -117,7 +120,7 @@ main_loop(void *pcore)
 
     eth_dev_count = rte_eth_dev_count();
 
-    while (1) {
+    while (!force_quit) {
         // At any time, config.c/app_config_reload_all() can update
         // core->app_config to load a new configuration. The reload function
         // needs to free the old configuration, and for that it waits us to
@@ -562,6 +565,43 @@ setup_app(struct core *cores, int argc, char **argv)
     return 0;
 }
 
+void
+natasha_exit()
+{
+    uint8_t eth_dev_count;
+    uint8_t portid;
+
+    eth_dev_count = rte_eth_dev_count();
+    if (!eth_dev_count) {
+        RTE_LOG(ERR, APP, "No network device using DPDK-compatible driver\n");
+        return;
+    }
+
+    for (portid = 0; portid < eth_dev_count; ++portid) {
+        RTE_LOG(INFO, APP, "Stopping port %i...\n", portid);
+        rte_eth_dev_stop(portid);
+        rte_eth_dev_close(portid);
+    }
+    /* TODO: free app configuration, TBD when changing app conf structures */
+}
+
+static void
+sigterm_handler(int signum)
+{
+    if (signum != SIGTERM) {
+        RTE_LOG(WARNING, APP, "Received signal %s cannot be handled\n",
+                strsignal(signum));
+        return;
+    }
+
+    RTE_LOG(WARNING, APP, "Received signal %s, preparing to exit...\n",
+            strsignal(signum));
+    force_quit = true;
+    natasha_exit();
+    signal(signum, SIG_DFL);
+    kill(getpid(), signum);
+}
+
 int
 #ifndef UNITTEST
 main(int argc, char **argv)
@@ -586,6 +626,8 @@ natasha(int argc, char **argv)
         rte_exit(EXIT_FAILURE, "Unable to set stderr as non-blocking\n");
     }
 
+    force_quit = false;
+    signal(SIGTERM, sigterm_handler);
     ret = rte_eal_init(argc, argv);
     if (ret < 0) {
         rte_exit(EXIT_FAILURE, "Error with EAL initialization\n");

@@ -203,9 +203,8 @@ app_config_reload_all(struct core *cores, int argc, char **argv, int out_fd)
         // not at application startup), wait until the new configuration is
         // used and free the old config.
         if (old_config) {
-            while (new_config->used == 0) {
-                continue ;
-            }
+            while (!(new_config->flags & NAT_FLAG_USED))
+                continue;
             app_config_free(old_config);
         }
     }

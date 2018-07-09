@@ -125,10 +125,14 @@ struct app_config {
 
     struct app_config_node *rules;
 
-    // If 1, this configuration has been used at least once and in case of
-    // reload (see config.c/app_config_relaod_all), old configuration is no
-    // longer used by the core and can safely be freed.
-    volatile int used;
+    /* NATASHA flags */
+#define NAT_FLAG_USED           0x0001  /* If NAT_FLAG_USED, this configuration
+                                         * has been used at least once and in
+                                         * case of reload (see config.c/app_config_relaod_all),
+                                         * old configuration is no longer used
+                                         * by the core and can safely be freed.
+                                         */
+    volatile uint32_t flags;
 
 } __rte_cache_aligned;
 

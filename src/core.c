@@ -123,7 +123,7 @@ main_loop(void *pcore)
         // needs to free the old configuration, and for that it waits us to
         // mark the new configuration as used, which implies we no longer
         // reference the old config.
-        core->app_config->used = 1;
+        core->app_config->flags |= NAT_FLAG_USED;
 
         for (port = 0; port < eth_dev_count; ++port) {
             // Read and process incoming packets.

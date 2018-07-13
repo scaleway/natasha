@@ -571,23 +571,30 @@ setup_app(struct core *cores, int argc, char **argv)
 void
 natasha_exit()
 {
-    uint8_t eth_dev_count;
-    uint8_t portid;
+    uint32_t lcore_id;
+    uint16_t portid;
 
-    eth_dev_count = rte_eth_dev_count();
-    if (!eth_dev_count) {
-        RTE_LOG(ERR, APP, "No network device using DPDK-compatible driver\n");
-        return;
+    /* stop and wait for slaves */
+    force_quit = true;
+    RTE_LCORE_FOREACH_SLAVE(lcore_id) {
+        if (rte_eal_wait_lcore(lcore_id) < 0)
+            RTE_LOG(WARNING, APP, "Core %d exited with failure !\n", lcore_id);
+        else
+            RTE_LOG(INFO, APP, "Core %d successfuly stoped.\n", lcore_id);
     }
 #ifdef RTE_LIBRTE_PDUMP
         rte_pdump_uninit();
 #endif
-    for (portid = 0; portid < eth_dev_count; ++portid) {
-        RTE_LOG(INFO, APP, "Stopping port %i...\n", portid);
+    RTE_ETH_FOREACH_DEV(portid) {
+        RTE_LOG(INFO, APP, "Stopping port %i...", portid);
         rte_eth_dev_stop(portid);
         rte_eth_dev_close(portid);
+        RTE_LOG(INFO, APP, "Done\n");
     }
-    /* TODO: free app configuration, TBD when changing app conf structures */
+    /*
+     * TODO:
+     * free app configuration, TBD when reworking app conf structures
+     */
 }
 
 static void
@@ -601,7 +608,6 @@ sigterm_handler(int signum)
 
     RTE_LOG(WARNING, APP, "Received signal %s, preparing to exit...\n",
             strsignal(signum));
-    force_quit = true;
     natasha_exit();
     signal(signum, SIG_DFL);
     kill(getpid(), signum);

@@ -54,8 +54,9 @@ L4_HEADER(udp, struct udp_hdr);
     (((ipv4_hdr)->fragment_offset & htons(IPV4_HDR_MF_FLAG)) &&     \
      !((ipv4_hdr)->fragment_offset & htons(IPV4_HDR_OFFSET_MASK)))
 
+/* Use offset field to check if it's a fragment */
 #define NATA_IS_FRAG(ipv4_hdr) \
-    (((ipv4_hdr)->fragment_offset & htons(IPV4_HDR_MF_FLAG)))
+    (((ipv4_hdr)->fragment_offset & htons(IPV4_HDR_OFFSET_MASK)))
 
 // last 12 bits of the TCI field
 #define VLAN_ID(pkt) ((pkt)->vlan_tci & 0xfff)

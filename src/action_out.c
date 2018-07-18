@@ -21,10 +21,6 @@ action_out(struct rte_mbuf *pkt, uint8_t port, struct core *core, void *data)
     // pkt.c/tx_flush will fail. See documentation in pkt.c.
     pkt->ol_flags |= PKT_TX_IPV4;
 
-    // Compute IPv4 checksum
-    ipv4_hdr->hdr_checksum = 0;
-    ipv4_hdr->hdr_checksum = rte_ipv4_cksum(ipv4_hdr);
-
     // Rewrite out vlan
     pkt->vlan_tci = out->vlan;
 

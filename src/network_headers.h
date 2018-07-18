@@ -60,4 +60,24 @@ L4_HEADER(udp, struct udp_hdr);
 // last 12 bits of the TCI field
 #define VLAN_ID(pkt) ((pkt)->vlan_tci & 0xfff)
 
+/* incremental checksum update */
+static inline void
+cksum_update(uint16_t *csum, uint32_t from, uint32_t to)
+{
+    uint32_t sum, csum_c, from_c, res, res2, ret, ret2;
+
+    csum_c = ~((uint32_t)*csum);
+    from_c = ~from;
+    res = csum_c + from_c;
+    ret = res + (res < from_c);
+
+    res2 = ret + to;
+    ret2 = res2 + (res2 < to);
+
+    sum = ret2;
+    sum = (sum & 0xffff) + (sum >> 16);
+    sum = (sum & 0xffff) + (sum >> 16);
+    *csum = (uint16_t)~sum;
+
+}
 #endif

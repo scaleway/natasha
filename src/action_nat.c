@@ -95,7 +95,7 @@ action_nat_rewrite_impl(struct rte_mbuf *pkt, uint8_t port, struct core *core,
     struct ipv4_hdr *inner_ipv4_hdr;
     uint32_t *inner_ipv4_address;
     uint32_t save_ipv4 = *address;
-    size_t icmp_len = 0;
+    uint32_t old_ipv4_cksum;
 
     // Rewrite IPv4 source or destination address.
     if (lookup_and_rewrite(pkt,
@@ -108,6 +108,9 @@ action_nat_rewrite_impl(struct rte_mbuf *pkt, uint8_t port, struct core *core,
         core->stats->drop_no_rule++;
         return -1;
     }
+
+    /* Update IP checksum using incremental update */
+    cksum_update(&ipv4_hdr->hdr_checksum, save_ipv4, *address);
 
     // Test is we have a fragmented packet and if it's the firest fragment
     //if (unlikely(NATA_FIRST_FRAG(ipv4_hdr) && ipv4_hdr.next_proto_id == IPPROTO_UDP)) {
@@ -157,10 +160,13 @@ action_nat_rewrite_impl(struct rte_mbuf *pkt, uint8_t port, struct core *core,
 
     if (inner_ipv4_to_rewrite == IPV4_SRC_ADDR) {
         inner_ipv4_address = &(inner_ipv4_hdr->src_addr);
+        old_ipv4_cksum = inner_ipv4_hdr->hdr_checksum;
     } else {
         inner_ipv4_address = &(inner_ipv4_hdr->dst_addr);
+        old_ipv4_cksum = inner_ipv4_hdr->hdr_checksum;
     }
 
+    save_ipv4 = *inner_ipv4_address;
     if (lookup_and_rewrite(pkt,
                            core->app_config->nat_lookup,
                            rte_be_to_cpu_32(*inner_ipv4_address),
@@ -169,15 +175,17 @@ action_nat_rewrite_impl(struct rte_mbuf *pkt, uint8_t port, struct core *core,
         return -1;
     }
 
-    // Since we udpated the inner IPv4 packet, its checksum needs to be
-    // updated.
-    inner_ipv4_hdr->hdr_checksum = 0;
-    inner_ipv4_hdr->hdr_checksum = rte_ipv4_cksum(inner_ipv4_hdr);
+    /* Since we udpated the inner IPv4 packet, its checksum needs to be updated */
+    /* using the incremental update. */
+    cksum_update(&inner_ipv4_hdr->hdr_checksum, save_ipv4,
+                 *inner_ipv4_address);
 
-    /* Update icmp cksum */
-    icmp_len = rte_be_to_cpu_16(ipv4_hdr->total_length) - sizeof(*ipv4_hdr);
-    icmp_hdr->icmp_cksum = 0;
-    icmp_hdr->icmp_cksum = ~rte_raw_cksum(icmp_hdr, icmp_len);
+    /* Update ICMP checksum when updating: */
+    /* 1) Inner ipv4 checksum */
+    cksum_update(&icmp_hdr->icmp_cksum, old_ipv4_cksum,
+                 inner_ipv4_hdr->hdr_checksum);
+    /* 2) Inner ipv4 address */
+    cksum_update(&icmp_hdr->icmp_cksum, save_ipv4, *inner_ipv4_address);
 
     return 0;
 }

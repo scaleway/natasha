@@ -95,6 +95,7 @@ action_nat_rewrite_impl(struct rte_mbuf *pkt, uint8_t port, struct core *core,
     struct ipv4_hdr *inner_ipv4_hdr;
     uint32_t *inner_ipv4_address;
     uint32_t save_ipv4 = *address;
+    size_t icmp_len = 0;
 
     // Rewrite IPv4 source or destination address.
     if (lookup_and_rewrite(pkt,
@@ -172,6 +173,11 @@ action_nat_rewrite_impl(struct rte_mbuf *pkt, uint8_t port, struct core *core,
     // updated.
     inner_ipv4_hdr->hdr_checksum = 0;
     inner_ipv4_hdr->hdr_checksum = rte_ipv4_cksum(inner_ipv4_hdr);
+
+    /* Update icmp cksum */
+    icmp_len = rte_be_to_cpu_16(ipv4_hdr->total_length) - sizeof(*ipv4_hdr);
+    icmp_hdr->icmp_cksum = 0;
+    icmp_hdr->icmp_cksum = ~rte_raw_cksum(icmp_hdr, icmp_len);
 
     return 0;
 }

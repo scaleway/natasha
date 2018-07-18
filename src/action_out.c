@@ -52,22 +52,6 @@ action_out(struct rte_mbuf *pkt, uint8_t port, struct core *core, void *data)
         break ;
     }
 
-    case IPPROTO_ICMP: {
-        struct icmp_hdr *icmp_hdr;
-
-        // Frags csum are calculated during action_nat_rewrite_impl()
-        if (unlikely(NATA_IS_FRAG(ipv4_hdr)))
-            break;
-        icmp_hdr = icmp_header(pkt);
-        icmp_hdr->icmp_cksum = 0;
-        // ICMP checksum can't be offloaded.
-        icmp_hdr->icmp_cksum = ~rte_raw_cksum(
-            icmp_hdr,
-            rte_be_to_cpu_16(ipv4_hdr->total_length) - sizeof(*ipv4_hdr)
-        );
-        break ;
-    }
-
     default:
         break ;
     }

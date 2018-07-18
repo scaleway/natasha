@@ -49,11 +49,13 @@ L4_HEADER(udp, struct udp_hdr);
 #undef L2_HEADER
 #undef L3_HEADER
 
-#define NATA_FIRST_FRAG(ipv4_hdr) \
-    (((ipv4_hdr)->fragment_offset & (IPV4_HDR_MF_FLAG + IPV4_HDR_OFFSET_MASK)) == htons(IPV4_HDR_MF_FLAG))
+/* check if it's the first fragment by having MF flag and offset set to 0 */
+#define NATA_IS_FIRST_FRAG(ipv4_hdr)                                \
+    (((ipv4_hdr)->fragment_offset & htons(IPV4_HDR_MF_FLAG)) &&     \
+     !((ipv4_hdr)->fragment_offset & htons(IPV4_HDR_OFFSET_MASK)))
 
 #define NATA_IS_FRAG(ipv4_hdr) \
-    (((ipv4_hdr)->fragment_offset & (IPV4_HDR_MF_FLAG + IPV4_HDR_OFFSET_MASK)) != 0)
+    (((ipv4_hdr)->fragment_offset & htons(IPV4_HDR_MF_FLAG)))
 
 // last 12 bits of the TCI field
 #define VLAN_ID(pkt) ((pkt)->vlan_tci & 0xfff)

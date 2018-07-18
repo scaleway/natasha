@@ -111,7 +111,7 @@ action_nat_rewrite_impl(struct rte_mbuf *pkt, uint8_t port, struct core *core,
 
     // Test is we have a fragmented packet and if it's the firest fragment
     //if (unlikely(NATA_FIRST_FRAG(ipv4_hdr) && ipv4_hdr.next_proto_id == IPPROTO_UDP)) {
-    if (unlikely(NATA_FIRST_FRAG(ipv4_hdr))) {
+    if (unlikely(NATA_IS_FIRST_FRAG(ipv4_hdr))) {
         if (ipv4_hdr->next_proto_id == IPPROTO_UDP) {
             struct udp_hdr *udp_hdr = udp_header(pkt);
             // recalculate the csum

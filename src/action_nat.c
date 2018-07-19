@@ -48,6 +48,72 @@ lookup_and_rewrite(struct rte_mbuf *pkt, uint32_t ***lookup_table, uint32_t ip,
     return 0;
 }
 
+static int
+icmp_nat_handle(struct core *core, struct rte_mbuf *pkt,
+                int inner_ipv4_to_rewrite)
+{
+
+    struct ipv4_hdr *ipv4_hdr = ipv4_header(pkt);
+    struct icmp_hdr *icmp_hdr = icmp_header(pkt);
+    struct ipv4_hdr *inner_ipv4_hdr;
+    uint32_t *inner_ipv4_address;
+    uint32_t old_ipv4_address;
+    uint32_t old_ipv4_cksum;
+
+    /* no need to handle other type payload that is not affected by nat */
+    if (likely(icmp_hdr->icmp_type != ICMP_DEST_UNREACH &&
+               icmp_hdr->icmp_type != ICMP_TIME_EXCEEDED &&
+               icmp_hdr->icmp_type != ICMP_PARAMETERPROB))
+        return 0;
+
+    /* If pkt is actually an ICMP error, let's rewrite the inner IP packet. If */
+    /* the outer packet is not large enough to contain a full IPv4 header, then */
+    /* we don't rewrite anything. */
+    /* We probalby should drop the packet instead, as it has probably been */
+    /* forged (with Scapy for instance). I don't think there are legitimate */
+    /* cases where an ICMP error doesn't contain the IPv4 header of the packet */
+    /* originating the error, but just in case I prefer not to drop anything. */
+    if (unlikely(rte_be_to_cpu_16(ipv4_hdr->total_length)
+                    - sizeof(struct ipv4_hdr) /* outer IPv4 header */
+                    - sizeof(struct icmp_hdr) /* ICMP error header */
+                    - sizeof(struct ipv4_hdr) /* inner IPv4 header */
+                    ) < 0)
+        return -1;
+
+    inner_ipv4_hdr = (struct ipv4_hdr *)((unsigned char *)icmp_hdr +
+                                         sizeof(*icmp_hdr));
+
+    if (inner_ipv4_to_rewrite == IPV4_SRC_ADDR) {
+        inner_ipv4_address = &(inner_ipv4_hdr->src_addr);
+        old_ipv4_cksum = inner_ipv4_hdr->hdr_checksum;
+    } else {
+        inner_ipv4_address = &(inner_ipv4_hdr->dst_addr);
+        old_ipv4_cksum = inner_ipv4_hdr->hdr_checksum;
+    }
+
+    old_ipv4_address = *inner_ipv4_address;
+    if (lookup_and_rewrite(pkt,
+                           core->app_config->nat_lookup,
+                           rte_be_to_cpu_32(*inner_ipv4_address),
+                           inner_ipv4_address) < 0) {
+        core->stats->drop_no_rule++;
+        return -1;
+    }
+
+    /* Since we udpated the inner IPv4 packet, its checksum needs to be updated */
+    /* using the incremental update. */
+    cksum_update(&inner_ipv4_hdr->hdr_checksum, old_ipv4_address,
+                 *inner_ipv4_address);
+
+    /* Update ICMP checksum when updating: */
+    /* 1) Inner ipv4 checksum */
+    cksum_update(&icmp_hdr->icmp_cksum, old_ipv4_cksum,
+                 inner_ipv4_hdr->hdr_checksum);
+    /* 2) Inner ipv4 address */
+    cksum_update(&icmp_hdr->icmp_cksum, old_ipv4_address, *inner_ipv4_address);
+
+    return 0;
+}
 /*
  * The actual rewrite function, to avoid duplicating the code twice to handle
  * the rewriting of the source and the destination addresses.
@@ -91,11 +157,7 @@ action_nat_rewrite_impl(struct rte_mbuf *pkt, uint8_t port, struct core *core,
                         uint32_t *address, int inner_ipv4_to_rewrite)
 {
     struct ipv4_hdr *ipv4_hdr = ipv4_header(pkt);
-    struct icmp_hdr *icmp_hdr;
-    struct ipv4_hdr *inner_ipv4_hdr;
-    uint32_t *inner_ipv4_address;
     uint32_t save_ipv4 = *address;
-    uint32_t old_ipv4_cksum;
 
     // Rewrite IPv4 source or destination address.
     if (lookup_and_rewrite(pkt,
@@ -138,71 +200,14 @@ action_nat_rewrite_impl(struct rte_mbuf *pkt, uint8_t port, struct core *core,
         }
         break;
     }
+    case IPPROTO_ICMP:
+    {
+        /* Handle inner Ipv4 header in ICMP error message */
+        return icmp_nat_handle(core, pkt, inner_ipv4_to_rewrite);
+    }
     default:
         break;
     }
-
-    // pkt is probably not an ICMP packet, there is no need to handle it
-    // specifically.
-    if (likely(ipv4_hdr->next_proto_id != IPPROTO_ICMP)) {
-        return 0;
-    }
-
-    icmp_hdr = icmp_header(pkt);
-
-    /* no need to handle other type that are not affected by nat */
-    if (likely(icmp_hdr->icmp_type != ICMP_DEST_UNREACH &&
-               icmp_hdr->icmp_type != ICMP_TIME_EXCEEDED &&
-               icmp_hdr->icmp_type != ICMP_PARAMETERPROB))
-        return 0;
-
-    // If pkt is actually an ICMP error, let's rewrite the inner IP packet. If
-    // the outer packet is not large enough to contain a full IPv4 header, then
-    // we don't rewrite anything.
-    // We probalby should drop the packet instead, as it has probably been
-    // forged (with Scapy for instance). I don't think there are legitimate
-    // cases where an ICMP error doesn't contain the IPv4 header of the packet
-    // originating the error, but just in case I prefer not to drop anything.
-    if (unlikely(rte_be_to_cpu_16(ipv4_hdr->total_length)
-                    - sizeof(*ipv4_hdr) // outer packet
-                    - sizeof(*icmp_hdr) // ICMP error header
-                    - sizeof(*ipv4_hdr) // inner IPv4 header
-    ) < 0) {
-        return 0;
-    }
-
-    inner_ipv4_hdr = (struct ipv4_hdr *)(
-        (unsigned char *)icmp_hdr + sizeof(*icmp_hdr)
-    );
-
-    if (inner_ipv4_to_rewrite == IPV4_SRC_ADDR) {
-        inner_ipv4_address = &(inner_ipv4_hdr->src_addr);
-        old_ipv4_cksum = inner_ipv4_hdr->hdr_checksum;
-    } else {
-        inner_ipv4_address = &(inner_ipv4_hdr->dst_addr);
-        old_ipv4_cksum = inner_ipv4_hdr->hdr_checksum;
-    }
-
-    save_ipv4 = *inner_ipv4_address;
-    if (lookup_and_rewrite(pkt,
-                           core->app_config->nat_lookup,
-                           rte_be_to_cpu_32(*inner_ipv4_address),
-                           inner_ipv4_address) < 0) {
-        core->stats->drop_no_rule++;
-        return -1;
-    }
-
-    /* Since we udpated the inner IPv4 packet, its checksum needs to be updated */
-    /* using the incremental update. */
-    cksum_update(&inner_ipv4_hdr->hdr_checksum, save_ipv4,
-                 *inner_ipv4_address);
-
-    /* Update ICMP checksum when updating: */
-    /* 1) Inner ipv4 checksum */
-    cksum_update(&icmp_hdr->icmp_cksum, old_ipv4_cksum,
-                 inner_ipv4_hdr->hdr_checksum);
-    /* 2) Inner ipv4 address */
-    cksum_update(&icmp_hdr->icmp_cksum, save_ipv4, *inner_ipv4_address);
 
     return 0;
 }

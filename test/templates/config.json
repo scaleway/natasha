@@ -1,0 +1,40 @@
+{
+    "tn": {
+        "ns35": {
+            "vlanid": 35,
+            "dev": "vlan35",
+            "peer_dev": "vlan76",
+            "lower_dev": "{{ tn_iface }}",
+            "mac_local": "{{ tn_mac }}",
+            "mac_nh": "{{ dut_mac }}",
+            "ip_priv": "10.35.0.2",
+            "ip_pub": "20.35.0.1",
+            "ip_nh": "10.35.0.1",
+            "ip_rmt": "20.76.0.1",
+            "ip_rmt_priv": "10.76.0.2"
+        },
+        "ns76": {
+            "vlanid": 76,
+            "dev": "vlan76",
+            "peer_dev": "vlan35",
+            "lower_dev": "{{ tn_iface }}",
+            "mac_local": "{{ tn_mac }}",
+            "mac_nh": "{{ dut_mac }}",
+            "ip_priv": "10.76.0.2",
+            "ip_pub": "20.76.0.1",
+            "ip_nh": "10.76.0.1",
+            "ip_rmt": "20.35.0.1",
+            "ip_rmt_priv": "10.35.0.2"
+        }
+    },
+    "dut": {
+        "ns35": {
+            "dev": "vlan35",
+            "vlanid": 35
+        },
+        "ns76": {
+            "dev": "vlan76",
+            "vlanid": 76
+        }
+    }
+}

@@ -63,7 +63,7 @@ UNIT_TESTS = {
         'name': 'ICMP fragmented',
         'class': ICMPFragTest,
         'bpfilter': 'icmp',
-        'count': 10,
+        'count': 1,
         'local_sniff': True,
         'payload': 'A' * 1450 + 'B' * 1450 + 'C' * 1450,
         'description': 'Generate fragmented ICMP traffic and check if it\'s correctly NATted'

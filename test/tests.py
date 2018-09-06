@@ -454,7 +454,7 @@ class UDPFragTest(TestSuite):
         return (self.validate_l2l3_answer(pkts, conf) and
                 self.validate_l4_answer(pkts))
 
-class ICMPFrag(ICMPTest):
+class ICMPFragTest(ICMPTest):
 
     """ICMPFrag test class"""
 

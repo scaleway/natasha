@@ -1,2 +1,5 @@
 build/
 tags
+test/.venv
+test/*.pyc
+test/deliveries

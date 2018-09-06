@@ -68,6 +68,16 @@ UNIT_TESTS = {
         'payload': 'A' * 1450 + 'B' * 1450 + 'C' * 1450,
         'description': 'Generate fragmented ICMP traffic and check if it\'s correctly NATted'
     },
+    'traceroute': {
+        'name': 'TraceRoute simulation',
+        'class': TraceRouteTest,
+        'bpfilter': 'icmp',
+        'count': 1,
+        'local_sniff': False,
+        'payload': 'UDP over ICMP packet to NAT',
+        'description': 'Generate an UDP over ICMP traffic and check if the'
+                       'inner and outer packets are correctly NATted'
+    },
 }
 
 # Main configuration file

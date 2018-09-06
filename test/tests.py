@@ -7,7 +7,7 @@ Test classes
 from time import sleep
 
 from scapy.sendrecv import sendp
-from scapy.packet import Raw
+from scapy.packet import Raw, Packet
 from scapy.volatile import RandShort
 from scapy.layers.l2 import Ether
 from scapy.layers.inet import IP, ICMP, TCP, UDP, fragment, defragment
@@ -72,7 +72,7 @@ class TestSuite(object):
         return True
 
     def validate_l2l3_answer(self, pkts, conf, layer3=True, layer2=True,
-                             count_exp=None):
+                             count_exp=None, payload=True):
         """ This method validates the l2 and l3 informations on the answred
         packet this informations remain the same on all kind of tested traffic
         except ARP test.
@@ -108,8 +108,11 @@ class TestSuite(object):
 
         _iter = iter(pkts)
         for pkt in _iter:
-            req = pkt
-            rsp = next(_iter)
+            try:
+                req = pkt
+                rsp = next(_iter)
+            except StopIteration:
+                rsp = None
 
             if layer2:
                 if(req[Ether].src != mac_src or
@@ -119,13 +122,14 @@ class TestSuite(object):
                               (mac_src, mac_dst,
                                req[Ether].src, req[Ether].dst))
                     return False
-                if(rsp[Ether].src != mac_dst or
-                   rsp[Ether].dst != mac_src):
-                    log.error('Expecting packet with MAC@(src="%s", dst="%s"),'
-                              ' got MAC@(src="%s" dst="%s")' %
-                              (mac_dst, mac_src,
-                               rsp[Ether].src, rsp[Ether].dst))
-                    return False
+                if rsp:
+                    if(rsp[Ether].src != mac_dst or
+                       rsp[Ether].dst != mac_src):
+                        log.error('Expecting packet with MAC@(src="%s", dst="%s"),'
+                                  ' got MAC@(src="%s" dst="%s")' %
+                                  (mac_dst, mac_src,
+                                   rsp[Ether].src, rsp[Ether].dst))
+                        return False
             if layer3:
                 if(req[IP].src != ip_src or
                    req[IP].dst != ip_dst):
@@ -134,24 +138,26 @@ class TestSuite(object):
                               (ip_src, ip_dst,
                                req[IP].src, req[IP].dst))
                     return False
-                if(rsp[IP].src != ip_dst or
-                   rsp[IP].dst != ip_src):
-                    log.error('Expecting packet with IP@(src="%s", dst="%s"),'
-                              ' got IP@(src="%s" dst="%s")' %
-                              (ip_dst, ip_src,
-                               rsp[IP].src, rsp[IP].dst))
-                    return False
+                if rsp:
+                    if(rsp[IP].src != ip_dst or
+                       rsp[IP].dst != ip_src):
+                        log.error('Expecting packet with IP@(src="%s", dst="%s"),'
+                                  ' got IP@(src="%s" dst="%s")' %
+                                  (ip_dst, ip_src,
+                                   rsp[IP].src, rsp[IP].dst))
+                        return False
 
                 # Validate the l3 checksum on natted packet
                 if  not self.checksum_is_valid(rsp if self._local_sniff else
                                                req, IP):
                     return False
 
-                # Validate the payload
-                payload = rsp[Raw].load if self._local_sniff else req[Raw].load
-                if payload != self._payload:
-                    log.error('Expecting packet with payload \""%s"\", '
-                              'got \""%s"\"' % (self._payload, payload))
+            # Validate the payload
+            if payload:
+                pload = rsp[Raw].load if self._local_sniff else req[Raw].load
+                if pload != self._payload:
+                    log.error('Expecting packet with payload "%s", '
+                              'got "%s"' % (self._payload, pload))
                     return False
 
         log.info('Received packets have a correct layer2, layer3 and payload'
@@ -508,3 +514,61 @@ class ICMPFragTest(ICMPTest):
         """
         return (self.validate_l2l3_answer(pkts, conf) and
                 self.validate_icmp_answer(pkts, conf))
+
+class TraceRouteTest(ICMPTest):
+
+    """TraceRouteTest test class"""
+
+    def build_query(self, conf):
+        """Method used to build the packet to send
+        :conf: the namespace configuration
+        :returns: packet to send
+
+        """
+        pkt = Ether(src=conf['mac_local'], dst=conf['mac_nh'])
+        # Outer packet
+        pkt /= IP(src=conf['ip_priv'], dst=conf['ip_rmt'], id=RandShort())
+        pkt /= ICMP(id=RandShort(), seq=1, type=11, code=0) # ICMP TTL exceeded
+        # Inner packet
+        pkt /= IP(src=conf['ip_priv'], dst=conf['ip_rmt'], id=RandShort())
+        pkt /= UDP(sport=RandShort(), dport=RandShort())
+        pkt /= self._payload
+
+        return pkt
+
+    def validate_traceroute_answer(self, pkts, conf):
+        """Validate the inner packet over ICMP answers
+
+        :pkts: received ICMP ttl expired packets
+        :conf: the namespace configuration
+        :returns: bool
+
+        """
+        log = self._log
+
+        for pkt in pkts:
+            if pkt.haslayer(ICMP) and pkt[ICMP].type == 13: # ttl-exceeded
+                inner_pkt = []
+                inner_pkt += IP(str(pkt[Raw].load))
+                if not self.validate_l2l3_answer(pkts, conf, count_exp=1):
+                    return False
+                if inner_pkt.haslayer(UDP):
+                    if not self.checksum_is_valid(inner_pkt, UDP):
+                        return False
+
+        log.info('Received packets have a correct inner layer3, layer4 and '
+                 'payload informations')
+        return True
+
+    def validate_answer(self, req, pkts, conf):
+        """Validate ICMP answers, expecting ICMP echo and echo_replays.
+
+        :req: the packet generated and sent
+        :pkts: captured packts
+        :conf: the namespace configuration
+        :returns: Bool
+
+        """
+        return (self.validate_l2l3_answer(pkts, conf, payload=False,
+                                          count_exp=1) and
+                self.validate_traceroute_answer(pkts, conf))

@@ -331,6 +331,25 @@ class TCPTest(TestSuite):
         return (self.validate_l2l3_answer(pkts, conf) and
                 self.validate_l4_answer(pkts))
 
+class TCPFragTest(TCPTest):
+
+    """TCP Fragmented test class"""
+
+    def build_query(self, conf):
+        """Method used to build the packet to send
+        TCP test need to validate any kind of TCP packet so let's use TCP SYN
+
+        :conf: the namespace configuration
+        :returns: packet to send
+
+        """
+        pkt = Ether(src=conf['mac_local'], dst=conf['mac_nh'])
+        pkt /= IP(src=conf['ip_priv'], dst=conf['ip_rmt'], id=RandShort())
+        pkt /= TCP(sport=RandShort(), dport=RandShort(), flags='S')
+        pkt /= self._payload
+
+        return fragment(pkt.__class__(str(pkt)))
+
 class UDPTest(TestSuite):
 
     """UDP test class"""

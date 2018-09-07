@@ -59,6 +59,15 @@ UNIT_TESTS = {
         'payload': 'A' * 1472 + 'B' * 1472 + 'C' * 1472,
         'description': 'Generate fragmented UDP traffic and check if it\'s correctly NATted'
     },
+    'tcp-frag': {
+        'name': 'TCP fragmented',
+        'class': TCPFragTest,
+        'bpfilter': 'tcp',
+        'count': 1,
+        'local_sniff': False,
+        'payload': 'A' * 1450 + 'B' * 1450 + 'C' * 1450,
+        'description': 'Generate fragmented TCP traffic and check if it\'s correctly NATted'
+    },
     'icmp-frag': {
         'name': 'ICMP fragmented',
         'class': ICMPFragTest,

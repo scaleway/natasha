@@ -217,7 +217,6 @@ class TestSuite(object):
             # Don't exit the test if it fails in one way, let's test the other
             # way too
             self._test_result &= result
-            break
 
         if self._test_result:
             self._log.info("%s Test done with success --> OK" % self._name)

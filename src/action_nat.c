@@ -192,6 +192,7 @@ action_nat_rewrite_impl(struct rte_mbuf *pkt, uint8_t port, struct core *core,
         }
         break;
     }
+    case IPPROTO_UDPLITE:
     case IPPROTO_UDP:
     {
         struct udp_hdr *udp_hdr = udp_header(pkt);

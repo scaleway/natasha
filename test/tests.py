@@ -9,8 +9,9 @@ from time import sleep
 from scapy.sendrecv import sendp
 from scapy.packet import Raw, Packet
 from scapy.volatile import RandShort
-from scapy.layers.l2 import Ether
+from scapy.layers.l2 import Ether, ARP
 from scapy.layers.inet import IP, ICMP, TCP, UDP, fragment, defragment
+from scapy.data import ETHER_BROADCAST
 
 from utils import Sniffer
 
@@ -572,3 +573,78 @@ class TraceRouteTest(ICMPTest):
         return (self.validate_l2l3_answer(pkts, conf, payload=False,
                                           count_exp=1) and
                 self.validate_traceroute_answer(pkts, conf))
+
+class ARPTest(TestSuite):
+
+    """ARP test class"""
+
+    def build_query(self, conf):
+        """Method used to build the packet to send
+        :conf: the namespace configuration
+        :returns: packet to send
+
+        """
+        pkt = Ether(src=conf['mac_local'], dst=ETHER_BROADCAST)
+        pkt /= ARP(op=1, pdst=conf['ip_nh'])
+
+        return pkt.__class__(str(pkt))
+
+    def validate_arp_answer(self, pkts, conf):
+        """Validate the ARP answers
+
+        :pkts: received ARP packets
+        :conf: the namespace configuration
+        :returns: bool
+
+        """
+
+        count = self._count
+        arp_replies = 0
+        mac_src = conf['mac_nh']
+        mac_dst = conf['mac_local']
+        ip_src = conf['ip_nh']
+        ip_dst = conf['ip_priv']
+
+        for pkt in pkts:
+            if pkt.haslayer(ARP) and pkt[ARP].op == 2:
+                if(pkt[Ether].src != mac_src or
+                        pkt[Ether].dst != mac_dst):
+                    log.error('Expecting packet with MAC@(src="%s", dst="%s"),'
+                            ' got MAC@(src="%s" dst="%s")' %
+                            (mac_dst, mac_src,
+                                pkt[Ether].src, pkt[Ether].dst))
+                    return False
+
+                if(pkt[ARP].hwsrc != mac_src or
+                        pkt[ARP].hwdst != mac_dst):
+                    log.error('Expecting packet with ARP MAC@(src="%s", dst="%s"),'
+                            ' got ARP MAC@(src="%s" dst="%s")' %
+                            (mac_dst, mac_src,
+                                pkt[ARP].hwsrc, pkt[ARP].hwdst))
+                    return False
+
+                if(pkt[ARP].psrc != ip_src or
+                        pkt[ARP].pdst != ip_dst):
+                    log.error('Expecting packet with ARP IP@(src="%s", dst="%s"),'
+                              ' got ARP IP@(src="%s" dst="%s")' %
+                              (ip_src, ip_dst,
+                               pkt[ARP].psrc, pkt[ARP].pdst))
+                    return False
+                arp_replies += 1
+        if arp_replies != count:
+            log.error('Expecting %d ARP reply, got %d' % (count, arp_replies))
+            return False
+        log.info('Expected ARP reply correct')
+        return True
+
+    def validate_answer(self, req, pkts, conf):
+        """Validate ARP.
+
+        :req: the packet generated and sent
+        :pkts: captured packts
+        :conf: the namespace configuration
+        :returns: Bool
+
+        """
+
+        return (self.validate_arp_answer(pkts, conf))

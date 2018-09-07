@@ -68,6 +68,15 @@ UNIT_TESTS = {
         'payload': 'A' * 1450 + 'B' * 1450 + 'C' * 1450,
         'description': 'Generate fragmented ICMP traffic and check if it\'s correctly NATted'
     },
+    'arp': {
+        'name': 'ARP request',
+        'class': ARPTest,
+        'bpfilter': 'arp',
+        'count': 1,
+        'local_sniff': True,
+        'payload': '',
+        'description': 'Generate an ARP request and check if it\'s correctly replying'
+    },
     'traceroute': {
         'name': 'TraceRoute simulation',
         'class': TraceRouteTest,

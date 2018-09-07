@@ -7,7 +7,7 @@ Test classes
 from time import sleep
 
 from scapy.sendrecv import sendp
-from scapy.packet import Raw, Packet
+from scapy.packet import Raw
 from scapy.volatile import RandShort
 from scapy.layers.l2 import Ether, ARP
 from scapy.layers.inet import IP, ICMP, TCP, UDP, fragment, defragment
@@ -598,6 +598,7 @@ class ARPTest(TestSuite):
 
         """
 
+        log = self._log
         count = self._count
         arp_replies = 0
         mac_src = conf['mac_nh']
@@ -607,33 +608,36 @@ class ARPTest(TestSuite):
 
         for pkt in pkts:
             if pkt.haslayer(ARP) and pkt[ARP].op == 2:
-                if(pkt[Ether].src != mac_src or
-                        pkt[Ether].dst != mac_dst):
+                if(pkt[Ether].src != mac_src or pkt[Ether].dst != mac_dst):
                     log.error('Expecting packet with MAC@(src="%s", dst="%s"),'
-                            ' got MAC@(src="%s" dst="%s")' %
-                            (mac_dst, mac_src,
-                                pkt[Ether].src, pkt[Ether].dst))
+                              ' got MAC@(src="%s" dst="%s")' % (mac_dst,
+                                                                mac_src,
+                                                                pkt[Ether].src,
+                                                                pkt[Ether].dst))
                     return False
 
-                if(pkt[ARP].hwsrc != mac_src or
-                        pkt[ARP].hwdst != mac_dst):
-                    log.error('Expecting packet with ARP MAC@(src="%s", dst="%s"),'
-                            ' got ARP MAC@(src="%s" dst="%s")' %
-                            (mac_dst, mac_src,
-                                pkt[ARP].hwsrc, pkt[ARP].hwdst))
+                if(pkt[ARP].hwsrc != mac_src or pkt[ARP].hwdst != mac_dst):
+                    log.error('Expecting packet with ARP '
+                              'MAC@(src="%s", dst="%s"), got ARP '
+                              'MAC@(src="%s" dst="%s")' % (mac_dst, mac_src,
+                                                           pkt[ARP].hwsrc,
+                                                           pkt[ARP].hwdst))
                     return False
 
-                if(pkt[ARP].psrc != ip_src or
-                        pkt[ARP].pdst != ip_dst):
-                    log.error('Expecting packet with ARP IP@(src="%s", dst="%s"),'
-                              ' got ARP IP@(src="%s" dst="%s")' %
-                              (ip_src, ip_dst,
-                               pkt[ARP].psrc, pkt[ARP].pdst))
+                if(pkt[ARP].psrc != ip_src or pkt[ARP].pdst != ip_dst):
+                    log.error('Expecting packet with ARP '
+                              'IP@(src="%s", dst="%s"), got ARP '
+                              'IP@(src="%s" dst="%s")' % (ip_src, ip_dst,
+                                                          pkt[ARP].psrc,
+                                                          pkt[ARP].pdst))
                     return False
+
                 arp_replies += 1
+
         if arp_replies != count:
             log.error('Expecting %d ARP reply, got %d' % (count, arp_replies))
             return False
+
         log.info('Expected ARP reply correct')
         return True
 
@@ -647,4 +651,4 @@ class ARPTest(TestSuite):
 
         """
 
-        return (self.validate_arp_answer(pkts, conf))
+        return self.validate_arp_answer(pkts, conf)

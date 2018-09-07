@@ -75,9 +75,18 @@ UNIT_TESTS = {
         'count': 1,
         'local_sniff': True,
         'payload': '',
-        'description': 'Generate an ARP request and check if it\'s correctly replieg'
+        'description': 'Generate an ARP request and check if it\'s correctly replying'
     },
-
+    'traceroute': {
+        'name': 'TraceRoute simulation',
+        'class': TraceRouteTest,
+        'bpfilter': 'icmp',
+        'count': 1,
+        'local_sniff': False,
+        'payload': 'UDP over ICMP packet to NAT',
+        'description': 'Generate an UDP over ICMP traffic and check if the'
+                       'inner and outer packets are correctly NATted'
+    },
 }
 
 # Main configuration file

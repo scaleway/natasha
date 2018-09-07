@@ -181,8 +181,15 @@ action_nat_rewrite_impl(struct rte_mbuf *pkt, uint8_t port, struct core *core,
     {
         struct tcp_hdr *tcp_hdr = tcp_header(pkt);
 
-        tcp_hdr->cksum = 0;
-        pkt->ol_flags |= PKT_TX_TCP_CKSUM;
+        if (unlikely(NATA_IS_FIRST_FRAG(ipv4_hdr))) {
+            tcp_hdr->cksum -= save_ipv4 & 0xffff;
+            tcp_hdr->cksum -= save_ipv4>>16 & 0xffff;
+            tcp_hdr->cksum += *address & 0xffff;
+            tcp_hdr->cksum += *address>>16 & 0xffff;
+        } else {
+            tcp_hdr->cksum = 0;
+            pkt->ol_flags |= PKT_TX_TCP_CKSUM;
+        }
         break;
     }
     case IPPROTO_UDP:

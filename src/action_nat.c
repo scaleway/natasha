@@ -175,21 +175,13 @@ action_nat_rewrite_impl(struct rte_mbuf *pkt, uint8_t port, struct core *core,
     cksum_update(&ipv4_hdr->hdr_checksum, save_ipv4, *address);
 
     /* Update L4 checksums on all packet a part from [2nd, n] fragment */
-    /* offload the checksum when possible */
     switch (NATA_IS_FRAG(ipv4_hdr) ? 0 : ipv4_hdr->next_proto_id) {
     case IPPROTO_TCP:
     {
         struct tcp_hdr *tcp_hdr = tcp_header(pkt);
 
-        if (unlikely(NATA_IS_FIRST_FRAG(ipv4_hdr))) {
-            tcp_hdr->cksum -= save_ipv4 & 0xffff;
-            tcp_hdr->cksum -= save_ipv4>>16 & 0xffff;
-            tcp_hdr->cksum += *address & 0xffff;
-            tcp_hdr->cksum += *address>>16 & 0xffff;
-        } else {
-            tcp_hdr->cksum = 0;
-            pkt->ol_flags |= PKT_TX_TCP_CKSUM;
-        }
+        /* Compute TCP checksum using incremental update */
+        cksum_update(&tcp_hdr->cksum, save_ipv4, *address);
         break;
     }
     case IPPROTO_UDPLITE:
@@ -197,15 +189,8 @@ action_nat_rewrite_impl(struct rte_mbuf *pkt, uint8_t port, struct core *core,
     {
         struct udp_hdr *udp_hdr = udp_header(pkt);
 
-        if (unlikely(NATA_IS_FIRST_FRAG(ipv4_hdr))) {
-            udp_hdr->dgram_cksum -= save_ipv4 & 0xffff;
-            udp_hdr->dgram_cksum -= save_ipv4>>16 & 0xffff;
-            udp_hdr->dgram_cksum += *address & 0xffff;
-            udp_hdr->dgram_cksum += *address>>16 & 0xffff;
-        } else {
-            udp_hdr->dgram_cksum = 0;
-            pkt->ol_flags |= PKT_TX_UDP_CKSUM;
-        }
+        /* Compute UDP checksum using incremental update */
+        cksum_update(&udp_hdr->dgram_cksum, save_ipv4, *address);
         break;
     }
     case IPPROTO_ICMP:

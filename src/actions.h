@@ -1,3 +1,4 @@
+/* vim: ts=4 sw=4 et */
 #ifndef ACTIONS_H_
 #define ACTIONS_H_
 

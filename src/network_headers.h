@@ -1,3 +1,4 @@
+/* vim: ts=4 sw=4 et */
 #ifndef NETWORK_HEADERS_H_
 #define NETWORK_HEADERS_H_
 

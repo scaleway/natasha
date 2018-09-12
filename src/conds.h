@@ -1,3 +1,4 @@
+/* vim: ts=4 sw=4 et */
 #ifndef CONDS_H_
 #define CONDS_H_
 

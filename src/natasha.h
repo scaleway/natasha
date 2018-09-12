@@ -1,3 +1,4 @@
+/* vim: ts=4 sw=4 et */
 #ifndef CORE_H_
 #define CORE_H_
 

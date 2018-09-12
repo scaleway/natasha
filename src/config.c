@@ -1,3 +1,4 @@
+/* vim: ts=4 sw=4 et */
 #include <errno.h>
 #include <string.h>
 #include <unistd.h>

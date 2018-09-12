@@ -1,3 +1,4 @@
+/* vim: ts=4 sw=4 et */
 include $(RTE_SDK)/mk/rte.vars.mk
 
 # rte.extapp.mk creates the build directory, sets NOT_FIRST_CALL to 1 and

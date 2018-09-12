@@ -1,3 +1,4 @@
+/* vim: ts=4 sw=4 et */
 #include <stdio.h>
 
 #include <rte_errno.h>

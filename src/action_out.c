@@ -1,3 +1,4 @@
+/* vim: ts=4 sw=4 et */
 #include "natasha.h"
 #include "network_headers.h"
 #include "actions.h"

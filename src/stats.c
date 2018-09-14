@@ -233,3 +233,11 @@ stats_reset(int fd)
     dprintf(fd, "Stats reset\n");
     return 0;
 }
+
+int
+show_version(int fd)
+{
+
+    dprintf(fd, "Natasha version: %s\n", GIT_VERSION);
+    return 0;
+}

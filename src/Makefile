@@ -7,6 +7,10 @@ ifeq ($(NOT_FIRST_CALL),1)
 
 APP ?= nat
 
+# Get the version
+GIT_VERSION := $(shell git describe --dirty --always --tags)
+
+CFLAGS += -DGIT_VERSION=\"$(GIT_VERSION)\"
 CFLAGS += -O3 -g
 CFLAGS += -flto
 CFLAGS += -Wall

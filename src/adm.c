@@ -71,6 +71,13 @@ command_reset(struct client *client, struct core *cores, int argc, char **argv)
 }
 
 static int
+command_version(struct client *client, struct core *cores, int argc, char **argv)
+{
+    show_version(client->fd);
+    return 0;
+}
+
+static int
 run_command(struct client *client, struct core *cores, int argc, char **argv)
 {
     struct {
@@ -83,6 +90,7 @@ run_command(struct client *client, struct core *cores, int argc, char **argv)
         {"reload", command_reload},
         {"stats", command_stats},
         {"xstats", command_xstats},
+        {"version", command_version},
         {"reset", command_reset},
     };
     size_t i;

@@ -188,6 +188,7 @@ int app_config_reload_all(struct core *cores, int argc, char **argv,
 void stats_display(int fd);
 void xstats_display(int fd, struct core *cores);
 int stats_reset(int fd);
+int show_version(int fd);
 
 // pkt.c
 uint16_t tx_send(struct rte_mbuf *pkt, uint8_t port, struct tx_queue *queue,

@@ -12,9 +12,10 @@ supports DPDK `v18.02` stable.
 * Reply to `ICMP Echo` requests in both the public and private interface.
 * `VLAN` offload (`Tx`/`Rx` and filtering).
 * `L3`/`L4` Rx checksum offload for stats purpose.
-* `L3`/`L3` Checksum computation using incremental update ([RFC1624](https://tools.ietf.org/html/rfc1624)).
+* `L3`/`L4` Tx checksum using hardware offload or software incremental update
+  ([RFC1624](https://tools.ietf.org/html/rfc1624)) depending on the case.
 * Various `stats`, Software and Hardware stats and per core.
-* Dumping release number with the commit id.
+* Dumping release version with the commit id.
 * Test directory `test` with a bench of functional and performance tests.
 
 ## TODO list

@@ -479,6 +479,58 @@ class UDPFragTest(TestSuite):
         return (self.validate_l2l3_answer(pkts, conf) and
                 self.validate_l4_answer(pkts))
 
+class UDPZeroCsumTest(UDPTest):
+
+    """UDPDF test class same as UDP test but with checksum = 0"""
+
+    def build_query(self, conf):
+        """Method used to build the UDP packet to send.
+
+        :conf: the namespace configuration
+        :returns: packet to send
+
+        """
+        pkt = Ether(src=conf['mac_local'], dst=conf['mac_nh'])
+        pkt /= IP(src=conf['ip_priv'], dst=conf['ip_rmt'], id=RandShort(),
+                  flags=2)
+        pkt /= UDP(sport=RandShort(), dport=RandShort(), chksum=0)
+        pkt /= self._payload
+
+        return pkt.__class__(str(pkt))
+
+    def validate_l4_answer(self, pkts):
+        """Validate the UDP answers
+        Linux Kernel sends an ICMP port unreachable when a UDP port is not open
+        let's filter and check only UDP packets
+
+        :pkts: received UDP packets
+        :conf: the namespace configuration
+        :returns: bool
+
+        """
+        log = self._log
+
+        for pkt in pkts:
+            if pkt.haslayer(UDP):
+                # we exect the checksum to remain 0 after being natted
+                if pkt[UDP].chksum != 0:
+                    return False
+        log.info('Received UDP traffic is correct')
+        return True
+
+    def validate_answer(self, req, pkts, conf):
+        """Validate answers, we expect UDP packets and ICMP port unreachable
+        packets as well
+
+        :req: the packet generated and sent
+        :pkts: captured packts
+        :conf: the namespace configuration
+        :returns: Bool
+
+        """
+        return (self.validate_l2l3_answer(pkts, conf) and
+                self.validate_l4_answer(pkts))
+
 class ICMPFragTest(ICMPTest):
 
     """ICMPFrag test class"""

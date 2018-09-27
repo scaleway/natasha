@@ -59,6 +59,15 @@ UNIT_TESTS = {
         'payload': 'A' * 1472 + 'B' * 1472 + 'C' * 1472,
         'description': 'Generate fragmented UDP traffic and check if it\'s correctly NATted'
     },
+    'udp-zero-csum': {
+        'name': 'UDP Zero checksum',
+        'class': UDPZeroCsumTest,
+        'bpfilter': 'udp or icmp',
+        'count': 3,
+        'local_sniff': False,
+        'payload': 'UDP Zero checksum to NAT',
+        'description': 'Generate UDP traffic with checksum to set to 0 and check if it remains 0 after being natted'
+    },
     'tcp-frag': {
         'name': 'TCP fragmented',
         'class': TCPFragTest,

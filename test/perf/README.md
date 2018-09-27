@@ -178,6 +178,7 @@ Release tag | PPS
 --- | ---
 v2.1 | 7383070
 v2.2 | 8029181
+v2.3 | 7414833
 
 ## TODO
 * Make a script that generate the configuration file for both `pktgen-DPDK` and

@@ -1,4 +1,4 @@
-#NATASHA
+# NATASHA
 
 ## Introduction
 Natasha is a fast, **DPDK** powered, stateless **NAT44** packet processor. It
@@ -44,6 +44,12 @@ if (ipv4.dst_addr in 10.0.0.0/8
 }
 ```
 More concrete examples are given in the [documentation](docs/CONFIGURATION.md).
+
+## Tests
+
+Natasha has a functional and performance test, checkout
+[func](test/func/README.md) and [perf](test/perf/README.md) for more
+informations.
 
 ## License
 

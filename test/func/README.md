@@ -4,6 +4,26 @@ stack. It gathers the basic tests and can be extended to support many
 complex scenarios of test. This documentation explains how to setup and start
 a test then there is a section explaining how to write a new test.
 
+## Available tests
+```
+(.venv) root@tgen:~/nat/test/func# ntfc -l
+Available Tests to play
++-----------------------+------------------------------------------------------------------------------------------------+
+|          Test         |                                          Description                                           |
++-----------------------+------------------------------------------------------------------------------------------------+
+|   UDP Zero checksum   |  Generate UDP traffic with checksum to set to 0 and check if it remains 0 after being natted   |
+|      ARP request      |                  Generate an ARP request and check if it's correctly replying                  |
+|          UDP          |                    Generate UDP traffic and check if it's correctly NATted                     |
+| TraceRoute simulation | Generate an UDP over ICMP traffic and check if theinner and outer packets are correctly NATted |
+|     UDP fragmented    |               Generate fragmented UDP traffic and check if it's correctly NATted               |
+|         UDP DF        |            Generate UDP with IP DF flag traffic and check if it's correctly NATted             |
+|          ICMP         |                           Generate ICMP traffic and check the replys                           |
+|     TCP fragmented    |               Generate fragmented TCP traffic and check if it's correctly NATted               |
+|          TCP          |                    Generate TCP traffic and check if it's correctly NATted                     |
+|    ICMP fragmented    |              Generate fragmented ICMP traffic and check if it's correctly NATted               |
++-----------------------+------------------------------------------------------------------------------------------------+
+```
+
 ## Topology
 For now, this test uses this basic topology described in RFC2544 LINKJ YAW.  We
 use VLAN interfaces to be as close as possible to a production like

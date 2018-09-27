@@ -196,6 +196,8 @@ action_nat_rewrite_impl(struct rte_mbuf *pkt, uint8_t port, struct core *core,
     {
         struct udp_hdr *udp_hdr = udp_header(pkt);
 
+        if (unlikely(!udp_hdr->dgram_cksum))
+            break;
         if (unlikely(NATA_IS_FIRST_FRAG(ipv4_hdr))) {
             /* Compute UDP checksum using incremental update */
             cksum_update(&udp_hdr->dgram_cksum, save_ipv4, *address);

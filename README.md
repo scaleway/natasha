@@ -1,8 +1,11 @@
 # NATASHA
 
 ## Introduction
-Natasha is a fast, **DPDK** powered, stateless **NAT44** packet processor. It
-supports DPDK `v18.02` stable.
+
+Natasha is a fast and scalable, **DPDK** powered, stateless **NAT44** packet
+processor. It can achieve 100Gbits/s translation with 64bytes packets.
+
+Natasha supports DPDK `v18.02` stable.
 
 ## Features
 
@@ -24,9 +27,9 @@ supports DPDK `v18.02` stable.
 * Rewrite configuration data structures.
 * Write a proper `L2` stack with `ARP` handling.
 * Return `ICMP` response if `TTL` is exceeded.
-* Raise error if out on non-configured port.
 
 ## Configuration
+
 At startup, `NATASHA` reads a configuration file that defines rules. These
 rules are processed for each packet received.
 
@@ -45,11 +48,40 @@ if (ipv4.dst_addr in 10.0.0.0/8
 ```
 More concrete examples are given in the [documentation](docs/CONFIGURATION.md).
 
+## Installation
+
+* Get DPDK stable sources and checkout on `v18.02` version:
+```
+git clone git://dpdk.org/dpdk-stable && cd $PATH_TO_DPDK_SOURCES
+git checkout v18.02
+```
+* Configure and build DPDK (see
+[Documentation](http://doc.dpdk.org/guides/linux_gsg/)).
+* Then make sure that your RTE_SDK path is defined.
+* Finally build Natasha:
+```
+cd NATASHA_SOURCES_PATH
+make
+```
+
+Run Natasha like any DPDK app and add application specific param `-f` with the
+right configuration file:
+```
+$(NATASHA_SOURCES_PATH)/build/nat -l 0,2 --master-lcore=0 -n 4 -w 0000:04:00.0 -- \
+                            -f $NATASHA_CONFIG_FILE
+```
+You can check the configuration files in the CI for more examples.
+
 ## Tests
 
-Natasha has a functional and performance test, checkout
-[func](test/func/README.md) and [perf](test/perf/README.md) for more
-informations.
+Natasha has a small CI process with a functional and performance tests, checkout
+[functional](test/func/README.md) and [performance](test/perf/README.md)
+documentation for more informations.
+
+## Contributing and Bugs report
+
+Any contribution or bug report are more than welcome :heart:, please make sure
+to details the bug/feature request.
 
 ## License
 

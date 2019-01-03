@@ -175,7 +175,7 @@ configuration expected and used by the admin (the subnets). So the rule `drop;`
 in the configuration increments this stat.
 * **drop_no_rule**: means that there is no nat rule for the input packet.
 * **drop_tx_notsent**: the NIC could no send the packet so its dropped to prevent mem leaks
-* **drop_ba_l3_cksum**: the RX packet has a bad ip checksum so it's dropped.
+* **drop_bad_l3_cksum**: the RX packet has a bad ip checksum so it's dropped.
 * **rx_bad_l4_cksum**: the RX packet has a bad udp or tcp checksum.
 * **drop_unknown_ethertype**: drop packet diffrent from ipv4 or arp.
 * **drop_unknown_icmp**: the nat received un icmp message different from `echo`

@@ -5,7 +5,7 @@
 Natasha is a fast and scalable, **DPDK** powered, stateless **NAT44** packet
 processor. It can achieve 100Gbits/s translation with 64bytes packets.
 
-Natasha supports DPDK `v18.02` stable.
+Natasha is in production at Scaleway with more than 1.2Tbits/s capacity.
 
 ## Features
 
@@ -49,6 +49,8 @@ if (ipv4.dst_addr in 10.0.0.0/8
 More concrete examples are given in the [documentation](docs/CONFIGURATION.md).
 
 ## Installation
+
+Natasha supports DPDK `v18.02` stable:
 
 * Get DPDK stable sources and checkout on `v18.02` version:
 ```

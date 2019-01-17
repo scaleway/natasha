@@ -84,25 +84,34 @@ eth_stats(uint8_t port, int fd)
     pps_tx = diff_cycles > 0 ?
         diff_pkts_tx * rte_get_tsc_hz() / diff_cycles : 0;
 
+#define BYTES_TO_BITS           8
+#define MILLION                 (uint64_t)(1000000ULL)
+#define INTER_FRAME_GAP         12
+#define PKT_PREAMBLE            8
+#define PKT_OVERHEAD            (INTER_FRAME_GAP + PKT_PREAMBLE)
     diff_bytes_rx = (stats.ibytes > prev_bytes_rx) ?
         (stats.ibytes - prev_bytes_rx) : 0;
+    diff_bytes_rx_accurate = diff_bytes_rx + (pps_rx * PKT_OVERHEAD);
+
     diff_bytes_tx = (stats.obytes > prev_bytes_tx) ?
         (stats.obytes - prev_bytes_tx) : 0;
+    diff_bytes_tx_accurate = diff_bytes_tx + (pps_tx * PKT_OVERHEAD);
 
     prev_bytes_rx = stats.ibytes;
     prev_bytes_tx = stats.obytes;
 
     bps_rx = diff_cycles > 0 ?
-        diff_bytes_rx * rte_get_tsc_hz() / diff_cycles : 0;
+        diff_bytes_rx_accurate * rte_get_tsc_hz() / diff_cycles : 0;
     bps_tx = diff_cycles > 0 ?
-        diff_bytes_tx * rte_get_tsc_hz() / diff_cycles : 0;
+        diff_bytes_tx_accurate * rte_get_tsc_hz() / diff_cycles : 0;
 
-#define BYTES_TO_BITS   8
     dprintf(fd, "Throughput (since last show)\n\n");
-    dprintf(fd, "RX:\t%12"PRIu64" PPS \t%12"PRIu64" bits/s\n",
-            pps_rx, bps_rx * BYTES_TO_BITS);
-    dprintf(fd, "TX:\t%12"PRIu64" PPS \t%12"PRIu64" bits/s\n",
-            pps_tx, bps_tx * BYTES_TO_BITS);
+    dprintf(fd, "RX:\t%12"PRIu64" PPS \t%12"PRIu64" mbits/s\n",
+            pps_rx,
+            bps_rx * BYTES_TO_BITS / MILLION);
+    dprintf(fd, "TX:\t%12"PRIu64" PPS \t%12"PRIu64" mbits/s\n",
+            pps_tx,
+            bps_tx * BYTES_TO_BITS / MILLION);
 
     return 0;
 }

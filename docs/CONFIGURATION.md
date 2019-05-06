@@ -157,7 +157,7 @@ NATASHA application statistics
 
 There are some application statistics used for debug perpose, they are defined:
 ```
-struct nat_stats {
+struct natasha_app_stats {
     uint64_t drop_no_rule;
     uint32_t drop_nat_condition;
     uint32_t drop_bad_l3_cksum;

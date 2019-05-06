@@ -136,7 +136,7 @@ void
 xstats_display(int fd, struct core *cores)
 {
     struct rte_eth_xstat_name *xstats_names;
-    struct nat_stats global_stats, *s;
+    struct natasha_app_stats global_stats, *s;
     struct rte_eth_xstat *xstats;
     int cnt_xstats, idx_xstat;
     uint8_t coreid;

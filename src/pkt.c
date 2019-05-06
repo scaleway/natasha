@@ -54,7 +54,7 @@ is_natasha_ip(struct app_config *app_config, uint32_t ip, int vlan)
  *    actually stored in transmit descriptors of the transmit ring.
  */
 uint16_t
-tx_flush(uint8_t port, struct tx_queue *queue, struct nat_stats *stats)
+tx_flush(uint8_t port, struct tx_queue *queue, struct natasha_app_stats *stats)
 {
     uint16_t sent;
     uint16_t n;
@@ -98,7 +98,7 @@ tx_flush(uint8_t port, struct tx_queue *queue, struct nat_stats *stats)
  */
 uint16_t
 tx_send(struct rte_mbuf *pkt, uint8_t port, struct tx_queue *queue,
-        struct nat_stats *stats)
+        struct natasha_app_stats *stats)
 {
     // Offload VLAN tagging if pkt has a non-zero vlan
     if (pkt->vlan_tci) {

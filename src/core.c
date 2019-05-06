@@ -482,8 +482,8 @@ run_workers(struct core *cores)
 }
 
 inline
-struct nat_stats *init_nat_stats(void) {
-    struct nat_stats *stats;
+struct natasha_app_stats *init_natasha_app_stats(void) {
+    struct natasha_app_stats *stats;
 
     /* alloc memory initialized with zeros */
     stats = rte_zmalloc("nat stats", sizeof(*stats), 0);
@@ -554,7 +554,7 @@ setup_app(struct core *cores, int argc, char **argv)
         cores[core].id = core;
         memset(&cores[core].app_config, 0, sizeof(cores[core].app_config));
         /* init natasha stats per core */
-        cores[core].stats = init_nat_stats();
+        cores[core].stats = init_natasha_app_stats();
         if (!cores[core].stats) {
             RTE_LOG(ERR, APP, "Cannot init per core stats\n");
             return -1;

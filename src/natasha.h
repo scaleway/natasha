@@ -168,7 +168,7 @@ struct core {
     struct app_config *app_config;
     struct rx_queue rx_queues[NATASHA_MAX_QUEUES];
     struct tx_queue tx_queues[NATASHA_MAX_QUEUES];
-    struct nat_stats *stats;
+    struct natasha_app_stats *stats;
     uint32_t id;
 } __rte_cache_aligned;
 
@@ -192,9 +192,9 @@ int show_version(int fd);
 
 // pkt.c
 uint16_t tx_send(struct rte_mbuf *pkt, uint8_t port, struct tx_queue *queue,
-                  struct nat_stats *stats);
+                  struct natasha_app_stats *stats);
 uint16_t tx_flush(uint8_t port, struct tx_queue *queue,
-                  struct nat_stats *stats);
+                  struct natasha_app_stats *stats);
 
 int is_natasha_ip(struct app_config *app_config,
                   uint32_t ip, int vlan);

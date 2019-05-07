@@ -163,7 +163,7 @@ support_per_queue_statistics(uint8_t port)
  * Reload the configuration of each worker.
  */
 int
-app_config_reload_all(struct core *cores, int argc, char **argv, int out_fd)
+app_config_reload_all(struct core *cores, int argc, char **argv)
 {
     unsigned int core;
     struct app_config *master_config;
@@ -171,9 +171,10 @@ app_config_reload_all(struct core *cores, int argc, char **argv, int out_fd)
     // Ensure configuration is valid
     master_config = app_config_load(argc, argv, SOCKET_ID_ANY);
     if (master_config == NULL) {
-        dprintf(out_fd, "Unable to load configuration. This is "
-                        "probably due to a syntax error, but you should check "
-                        "server logs. Workers have not been reloaded.\n");
+        RTE_LOG(EMERG, APP,
+                "Unable to load configuration. This is probably due to a syntax"
+                " error, but you should check server logs."
+                "Workers have not been reloaded.\n");
         return -1;
     }
 
@@ -186,12 +187,8 @@ app_config_reload_all(struct core *cores, int argc, char **argv, int out_fd)
         socket_id = rte_lcore_to_socket_id(core);
 
         if ((new_config = app_config_load(argc, argv, socket_id)) == NULL) {
-            dprintf(
-                out_fd,
-                "Core %i: unable to load configuration. Check server logs. "
-                "Following workers are not reloaded.",
-                core
-            );
+            RTE_LOG(EMERG, APP,
+                    "Core %i: unable to load configuration on lcore\n", core);
             app_config_free(master_config);
             return -1;
         }
@@ -210,7 +207,7 @@ app_config_reload_all(struct core *cores, int argc, char **argv, int out_fd)
         }
     }
 
-    dprintf(out_fd, "%i NAT rules reloaded\n",
+    RTE_LOG(INFO, APP, "%i NAT rules reloaded\n",
             nat_number_of_rules(master_config->nat_lookup));
     app_config_free(master_config);
     return 0;

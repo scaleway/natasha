@@ -562,7 +562,7 @@ setup_app(struct core *cores, int argc, char **argv)
     }
 
     // Load the configuration for each worker
-    if (app_config_reload_all(cores, argc, argv, STDOUT_FILENO) < 0) {
+    if (app_config_reload_all(cores, argc, argv) < 0) {
         return -1;
     }
 

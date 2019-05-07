@@ -53,7 +53,6 @@ SRCS-y +=                           \
     core.c                          \
     ipv4.c                          \
     pkt.c                           \
-    stats.c                         \
 
 natasha: $(CONFIG_OUTPUT) all
 

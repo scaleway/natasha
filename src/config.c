@@ -156,7 +156,8 @@ support_per_queue_statistics(uint8_t port)
 
     rte_eth_dev_info_get(port, &dev_info);
     return !!strcmp(dev_info.driver_name, "net_i40e") &&
-	    !!strcmp(dev_info.driver_name, "net_mlx5");
+	    !!strcmp(dev_info.driver_name, "net_mlx5") &&
+        !!strcmp(dev_info.driver_name, "net_e1000_igb");
 }
 
 /*

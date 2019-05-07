@@ -8,6 +8,8 @@
 #include <rte_rwlock.h>
 #include <rte_malloc.h>
 
+#include "cli.h"
+
 /*
  * Logging configuration.
  */
@@ -34,20 +36,6 @@ volatile bool force_quit;
 
 // Forward declaration. Defined under "Workers and queues configuration".
 struct core;
-
-/*
- * Structure for nat related statistics
- * These stats SHOULD be kept per core.
- */
-struct nat_stats {
-    uint64_t drop_no_rule;              /* the most used stat */
-    uint32_t drop_nat_condition;
-    uint32_t drop_bad_l3_cksum;
-    uint32_t rx_bad_l4_cksum;
-    uint32_t drop_unknown_icmp;
-    uint32_t drop_unhandled_ethertype;
-    uint32_t drop_tx_notsent;
-};
 
 // Network port.
 struct ip_vlan {
@@ -173,6 +161,26 @@ struct core {
 } __rte_cache_aligned;
 
 /*
+ * Natasha management socket
+ */
+
+#define NATASHA_SOCKET_PORT     4242
+#define NATASHA_MAX_CLIENTS     2
+struct natasha_client {
+    int fd;
+    char buf[4096];
+};
+
+struct natasha_query {
+    uint8_t type;
+};
+
+struct natasha_command {
+        enum natasha_cmd_type cmd_type;
+        int (*func)(struct natasha_client *, struct core *, uint8_t cmd_type);
+};
+
+/*
  * Prototypes.
  */
 
@@ -181,12 +189,6 @@ struct app_config *app_config_load(int argc, char **argv,
                                    unsigned int socket_id);
 void app_config_free(struct app_config *config);
 int support_per_queue_statistics(uint8_t port);
-
-// stats.c
-void stats_display(int fd);
-void xstats_display(int fd, struct core *cores);
-int stats_reset(int fd);
-int show_version(int fd);
 int app_config_reload_all(struct core *cores, int argc, char **argv);
 
 // pkt.c

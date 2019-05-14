@@ -39,12 +39,12 @@ char natasha_version[100];
  */
 struct natasha_app_stats {
     uint64_t drop_no_rule;              /* the most used stat */
-    uint32_t drop_nat_condition;
-    uint32_t drop_bad_l3_cksum;
-    uint32_t rx_bad_l4_cksum;
-    uint32_t drop_unknown_icmp;
-    uint32_t drop_unhandled_ethertype;
-    uint32_t drop_tx_notsent;
+    uint64_t drop_nat_condition;
+    uint64_t drop_bad_l3_cksum;
+    uint64_t rx_bad_l4_cksum;
+    uint64_t drop_unknown_icmp;
+    uint64_t drop_unhandled_ethertype;
+    uint64_t drop_tx_notsent;
 };
 
 /* Structures and definition retreived from DPDK 18.02.2 stable */

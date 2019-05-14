@@ -197,12 +197,12 @@ void
 cpu_to_be_app_stats(struct natasha_app_stats *core) {
 
     core->drop_no_rule = rte_cpu_to_be_64(core->drop_no_rule);
-    core->drop_nat_condition = rte_cpu_to_be_32(core->drop_nat_condition);
-    core->drop_bad_l3_cksum = rte_cpu_to_be_32(core->drop_bad_l3_cksum);
-    core->rx_bad_l4_cksum = rte_cpu_to_be_32(core->rx_bad_l4_cksum);
-    core->drop_unknown_icmp = rte_cpu_to_be_32(core->drop_unknown_icmp);
-    core->drop_unhandled_ethertype = rte_cpu_to_be_32(core->drop_unhandled_ethertype);
-    core->drop_tx_notsent = rte_cpu_to_be_32(core->drop_tx_notsent);
+    core->drop_nat_condition = rte_cpu_to_be_64(core->drop_nat_condition);
+    core->drop_bad_l3_cksum = rte_cpu_to_be_64(core->drop_bad_l3_cksum);
+    core->rx_bad_l4_cksum = rte_cpu_to_be_64(core->rx_bad_l4_cksum);
+    core->drop_unknown_icmp = rte_cpu_to_be_64(core->drop_unknown_icmp);
+    core->drop_unhandled_ethertype = rte_cpu_to_be_64(core->drop_unhandled_ethertype);
+    core->drop_tx_notsent = rte_cpu_to_be_64(core->drop_tx_notsent);
 
 }
 

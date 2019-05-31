@@ -1,0 +1,19 @@
+variables:
+  BIN_NAME: 'natasha'
+
+before_script:
+  - pwd
+  - ls -la
+  - echo $RTE_SDK
+
+stages:
+  - build
+
+build-project:
+  stage: build
+  tags:
+    - docker
+    - network
+  image: docker.infra.online.net/network/dpdk:18.02.2
+  script:
+    - make

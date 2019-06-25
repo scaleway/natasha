@@ -119,6 +119,7 @@ static int
 main_loop(void *pcore)
 {
     uint8_t port;
+	uint64_t start_time;
     uint8_t eth_dev_count;
     struct core *core = pcore;
 
@@ -132,6 +133,7 @@ main_loop(void *pcore)
         // reference the old config.
         core->app_config->flags |= NAT_FLAG_USED;
 
+        start_time = rte_rdtsc_precise();
         for (port = 0; port < eth_dev_count; ++port) {
             // Read and process incoming packets.
             handle_port(port, core);
@@ -141,6 +143,7 @@ main_loop(void *pcore)
             // Write out packets.
             tx_flush(port, &core->tx_queues[port], core->stats);
         }
+        core->busy_cycles = rte_rdtsc_precise() - start_time;
     }
     return 0;
 }

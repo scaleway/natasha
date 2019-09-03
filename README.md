@@ -85,6 +85,9 @@ documentation for more informations.
 Any contribution or bug report are more than welcome :heart:, please make sure
 to details the bug/feature request.
 
+## Changelog
+
+See the [Changelog file](CHANGELOG.md)
 ## License
 
 Natasha is Free Software (learn more:

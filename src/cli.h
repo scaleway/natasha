@@ -21,7 +21,6 @@ enum natasha_cmd_type {
     NATASHA_CMD_DPDK_XSTATS,
     NATASHA_CMD_APP_STATS,
     NATASHA_CMD_VERSION,
-    NATASHA_CMD_CPU_USAGE,
 };
 
 #define NATASHA_REPLY_OK     0

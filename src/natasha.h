@@ -157,7 +157,6 @@ struct core {
     struct rx_queue rx_queues[NATASHA_MAX_QUEUES];
     struct tx_queue tx_queues[NATASHA_MAX_QUEUES];
     struct natasha_app_stats *stats;
-    uint64_t busy_cycles;
     uint32_t id;
 } __rte_cache_aligned;
 

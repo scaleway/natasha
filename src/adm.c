@@ -12,7 +12,6 @@
 #include <sys/un.h>
 
 #include <rte_ethdev.h>
-#include <rte_cycles.h>
 
 #include "natasha.h"
 #include "cli.h"
@@ -255,72 +254,6 @@ handle_cmd_app_stats(struct natasha_client *client, struct core *cores,
     return 0;
 }
 
-static int
-handle_cmd_cpu_usage(struct natasha_client *client, struct core *cores,
-                     uint8_t cmd_type)
-{
-    uint64_t frequency = rte_get_tsc_hz();
-    struct natasha_cmd_reply reply;
-    size_t data_size;
-    uint64_t cycles, freq;
-    uint8_t coreid;
-    int nb;
-
-
-    reply.status = NATASHA_REPLY_OK;
-    /* Don't count the master as is idle */
-    data_size = (sizeof(cycles) + sizeof(frequency) + sizeof(coreid)) *
-                    (rte_lcore_count() - 1);
-
-    reply.type = cmd_type;
-    reply.data_size = rte_cpu_to_be_16(data_size);
-
-    nb = send(client->fd, &reply, sizeof(reply) , 0);
-    if (nb != sizeof(reply)) {
-        RTE_LOG(ERR, APP, "%s: failed to send 0x%x bytes (sent 0x%x bytes)\n",
-                __func__, (uint32_t)sizeof(reply), nb);
-        return -1;
-    }
-
-    /* We cannot send float over network easly see beej's section below:
-     * http://beej.us/guide/bgnet/html/single/bgnet.html#serialization
-     * And due to the language barriere in the client side (golang) it's not
-     * possible to implement this function (ntohf nad htonf) in the client side.
-     * So to workaround, we need to send the CPU busy cycles and the frequecy.
-     */
-    RTE_LCORE_FOREACH_SLAVE(coreid) {
-        cycles = rte_cpu_to_be_64(cores[coreid].busy_cycles % frequency);
-        freq = rte_cpu_to_be_64(frequency);
-
-        /* Send coreID  uint8_t */
-        nb = send(client->fd, &coreid, sizeof(coreid) , 0);
-        if (nb != sizeof(coreid)) {
-            RTE_LOG(ERR, APP,
-                    "%s: failed to send 0x%x bytes (sent 0x%x bytes)\n",
-                    __func__, (uint32_t)sizeof(coreid), nb);
-            return -1;
-        }
-        /* Send core busy cycles*/
-        nb = send(client->fd, &cycles, sizeof(cycles) , 0);
-        if (nb != sizeof(cycles)) {
-            RTE_LOG(ERR, APP,
-                    "%s: failed to send 0x%x bytes (sent 0x%x bytes)\n",
-                    __func__, (uint32_t)sizeof(cycles), nb);
-            return -1;
-        }
-        /* Send cpu frequency */
-        nb = send(client->fd, &freq, sizeof(freq) , 0);
-        if (nb != sizeof(freq)) {
-            RTE_LOG(ERR, APP,
-                    "%s: failed to send 0x%x bytes (sent 0x%x bytes)\n",
-                    __func__, (uint32_t)sizeof(freq), nb);
-            return -1;
-        }
-    }
-
-    return 0;
-}
-
 const struct natasha_command natasha_commands[] = {
     {
         .cmd_type = NATASHA_CMD_STATUS,
@@ -349,10 +282,6 @@ const struct natasha_command natasha_commands[] = {
     {
         .cmd_type = NATASHA_CMD_APP_STATS,
         .func = handle_cmd_app_stats,
-    },
-    {
-        .cmd_type = NATASHA_CMD_CPU_USAGE,
-        .func = handle_cmd_cpu_usage,
     },
 };
 

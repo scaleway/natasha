@@ -131,7 +131,7 @@ Is represented as the following AST:
                 /    \______________________________________________________________      |
 ACTION[action=cond_ipv4_src_in_network, data=struct ipv4_network(10.0.0.0/8)]       |     |
                                                                                     |     |
-ACTION[action=cond_ipv4_src_in_network, data=struct ipv4_network(212.47.0.0/16)] ___|     |
+ACTION[action=cond_ipv4_dst_in_network, data=struct ipv4_network(212.47.0.0/16)] ___|     |
                                                                                           |
                    _______________________________________________________________________|
                    |
